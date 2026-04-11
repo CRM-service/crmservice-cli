@@ -88,29 +88,6 @@ func LoadConfig(configFile string) (*Config, error) {
 		return nil, err
 	}
 
-	if v.IsSet("api.url") {
-		url := v.GetString("api.url")
-		url = sanitizeURL(url)
-		addAPISuffix(&url)
-		config.API.URL = url
-	}
-
-	if v.IsSet("auth.token") {
-		config.Auth.Token = v.GetString("auth.token")
-	}
-	if v.IsSet("output.format") {
-		config.Output.Format = v.GetString("output.format")
-	}
-	if v.IsSet("cache.schema_dir") {
-		config.Cache.SchemaDir = v.GetString("cache.schema_dir")
-	}
-	if v.IsSet("cache.ttl_days") {
-		config.Cache.TTLDays = v.GetInt("cache.ttl_days")
-	}
-	if v.IsSet("cache.auto_refresh") {
-		config.Cache.AutoRefresh = v.GetBool("cache.auto_refresh")
-	}
-
 	return config, nil
 }
 

@@ -3,12 +3,10 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"crmservice/internal/config"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var (
@@ -35,11 +33,6 @@ func initConfig(cmd *cobra.Command) error {
 	if err := LoadConfig(); err != nil {
 		return err
 	}
-
-	v := viper.New()
-	v.SetEnvPrefix("CRMSERVICE")
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	v.AutomaticEnv()
 
 	if url, _ := cmd.Flags().GetString("url"); url != "" {
 		cfg.API.URL = url
