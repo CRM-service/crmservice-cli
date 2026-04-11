@@ -1,0 +1,29 @@
+linters:
+  enable:
+    - gofmt
+    - goimports
+    - revive
+    - gocritic
+    - errcheck
+    - staticcheck
+    - unused
+    - misspell
+    - govet
+    - whitespace
+    - godot
+    - gosec
+
+linters-settings:
+  gofmt:
+    simplify: true
+  goimports:
+    local-prefixes: crmservice
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+  staticcheck:
+    checks: ["all"]
+  revive:
+    rules:
+      - name: exported
+        arguments: []

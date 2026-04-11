@@ -1,0 +1,16 @@
+api:
+  url: "https://customer.example.com"
+  timeout: 30
+
+output:
+  format: "table"
+  page_size: 20
+
+cache:
+  schema_dir: "~/.cache/crmservice/schema"
+  ttl_days: 24
+  auto_refresh: true
+
+auth:
+  token: "your-bearer-token-here"
+  type: "bearer"
