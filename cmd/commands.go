@@ -443,13 +443,15 @@ func deleteCmd() *cobra.Command {
 
 			errDelete := apiClient.Delete(cmd.Context(), module, id)
 			if errDelete != nil {
-				return output.ErrorResponse(err)
+				return output.ErrorResponse(errDelete)
 			}
 
 			fmt.Printf("Successfully deleted %s %s\n", module, id)
 			return nil
 		},
 	}
+
+	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
 
 	return cmd
 }
