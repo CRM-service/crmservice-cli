@@ -643,65 +643,25 @@ func fieldsCmd() *cobra.Command {
 
 func searchCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "search <module> <query>",
-		Short: "Search records",
+		Use:   "search <module> <filter>",
+		Short: "Search records (alias for list --filter)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			module := args[0]
-			query := args[1]
-			token, err := cmd.Flags().GetString("token")
-			if err != nil {
-				return err
-			}
-			if token == "" {
-				token = os.Getenv("CRMSERVICE_AUTH_TOKEN")
-			}
-			outputFormat, err := cmd.Flags().GetString("output")
-			if err != nil {
-				return err
-			}
-
-			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", outputFormat)
-			}
-			full, err := cmd.Flags().GetBool("full")
-			if err != nil {
-				return err
-			}
-
-			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", outputFormat)
-			}
-			verbose, err := cmd.Flags().GetInt("verbose")
-			if err != nil {
-				return err
-			}
-
-			url := getURLFromFlagOrEnv(cmd)
-
-			apiClient := api.NewClient(url, token)
-			apiClient.Verbose = verbose
-
-			opts := &api.ListOptions{
-				PageSize: 20,
-			}
-			opts.AddFilter("search", query)
-
-			resp, err := apiClient.List(cmd.Context(), module, opts)
-			if err != nil {
-				return output.ErrorResponse(err)
-			}
-
-			return output.ListResponse(resp, output.Options{
-				Format: outputFormat,
-				Full:   full,
-			})
+			filter := args[1]
+			
+			cmd.Flags().Set("filter", filter)
+			return listCmd().RunE(cmd, args[:1])
 		},
 	}
 
-	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, or csv")
-	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
-	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
+	cmd.Flags().AddFlag(listCmd().Flags().Lookup("output"))
+	cmd.Flags().AddFlag(listCmd().Flags().Lookup("full"))
+	cmd.Flags().AddFlag(listCmd().Flags().Lookup("verbose"))
+	cmd.Flags().AddFlag(listCmd().Flags().Lookup("page-size"))
+	cmd.Flags().AddFlag(listCmd().Flags().Lookup("page"))
+	cmd.Flags().AddFlag(listCmd().Flags().Lookup("offset"))
+	cmd.Flags().AddFlag(listCmd().Flags().Lookup("fields"))
+	cmd.Flags().AddFlag(listCmd().Flags().Lookup("include"))
 
 	return cmd
 }

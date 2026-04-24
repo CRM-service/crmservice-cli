@@ -163,6 +163,9 @@ func (c *Client) Do(ctx context.Context, method, path string, body interface{}, 
 	}
 
 	for key, value := range c.DefaultHeaders {
+		if method == "GET" && key == "Content-Type" {
+			continue
+		}
 		req.Header.Set(key, value)
 	}
 	if c.AuthToken != "" {
