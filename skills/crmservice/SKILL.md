@@ -81,8 +81,8 @@ crmservice delete accounts 123
 
 ### Search Records
 ```bash
-crmservice accounts search '{$and:[{$eq:["status","value"]}]}'
-crmservice contacts search '{"$or":[{"$eq":["id","123"]},{"$eq":["id","456"]}]}' --fields "id,entity_no,first_name,last_name"
+crmservice search accounts '{$and:[{$eq:["status","value"]}]}'
+crmservice search contacts '{"$or":[{"$eq":["id","123"]},{"$eq":["id","456"]}]}' --fields "id,entity_no,first_name,last_name"
 ```
 
 ### Show Fields
