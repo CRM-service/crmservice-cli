@@ -78,114 +78,19 @@ func getURLFromFlagOrEnv(cmd *cobra.Command) string {
 	return strings.TrimSuffix(url, "/")
 }
 
+var listCommand *cobra.Command
+
+func init() {
+	listCommand = listCmd()
+}
+
 func listCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list <module>",
 		Short: "List records",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			module := args[0]
-			token, err := cmd.Flags().GetString("token")
-			if err != nil {
-				return err
-			}
-			if token == "" {
-				token = os.Getenv("CRMSERVICE_AUTH_TOKEN")
-			}
-			outputFormat, err := cmd.Flags().GetString("output")
-			if err != nil {
-				return err
-			}
-
-			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", outputFormat)
-			}
-			full, err := cmd.Flags().GetBool("full")
-			if err != nil {
-				return err
-			}
-
-			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", outputFormat)
-			}
-			pageSize, err := cmd.Flags().GetInt("page-size")
-			if err != nil {
-				return err
-			}
-			page, err := cmd.Flags().GetInt("page")
-			if err != nil {
-				return err
-			}
-			offset, err := cmd.Flags().GetInt("offset")
-			if err != nil {
-				return err
-			}
-			fields, err := cmd.Flags().GetString("fields")
-			if err != nil {
-				return err
-			}
-			filter, err := cmd.Flags().GetString("filter")
-			if err != nil {
-				return err
-			}
-			include, err := cmd.Flags().GetString("include")
-			if err != nil {
-				return err
-			}
-			verbose, err := cmd.Flags().GetInt("verbose")
-			if err != nil {
-				return err
-			}
-
-			url := getURLFromFlagOrEnv(cmd)
-
-			apiClient := api.NewClient(url, token)
-			apiClient.Verbose = verbose
-
-			opts := &api.ListOptions{
-				PageSize: pageSize,
-			}
-
-			if page > 0 {
-				opts.SetPage(page)
-			}
-
-			if offset > 0 {
-				opts.SetOffset(offset)
-			}
-
-			if fields != "" {
-				opts.SetFields(strings.Split(fields, ","))
-			}
-
-			if filter != "" {
-				var filterObj map[string]interface{}
-				if err := json.Unmarshal([]byte(filter), &filterObj); err == nil {
-					opts.SetFilterObj(filterObj)
-				} else {
-					return fmt.Errorf("invalid filter format. Use JSON syntax: filter={$and:[{$eq:[\"field\",\"value\"]}]}. Error: %v", err)
-				}
-			}
-
-			if include != "" {
-				opts.AddInclude(include)
-			}
-
-			resp, err := apiClient.List(cmd.Context(), module, opts)
-			if err != nil {
-				return output.ErrorResponse(err)
-			}
-
-			var outputFields []string
-			if fields != "" {
-				outputFields = strings.Split(fields, ",")
-			}
-
-			return output.ListResponse(resp, output.Options{
-				Format: outputFormat,
-				Fields: outputFields,
-				Full:   full,
-			})
+			return runListCommand(cmd, args, "")
 		},
 	}
 
@@ -200,6 +105,114 @@ func listCmd() *cobra.Command {
 	cmd.Flags().Int("offset", 0, "Offset for pagination")
 
 	return cmd
+}
+
+func runListCommand(cmd *cobra.Command, args []string, filterOverride string) error {
+	module := args[0]
+	token, err := cmd.Flags().GetString("token")
+	if err != nil {
+		return err
+	}
+	if token == "" {
+		token = os.Getenv("CRMSERVICE_AUTH_TOKEN")
+	}
+	outputFormat, err := cmd.Flags().GetString("output")
+	if err != nil {
+		return err
+	}
+
+	if !ValidOutputFormat(outputFormat) {
+		return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", outputFormat)
+	}
+	full, err := cmd.Flags().GetBool("full")
+	if err != nil {
+		return err
+	}
+
+	if !ValidOutputFormat(outputFormat) {
+		return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", outputFormat)
+	}
+	pageSize, err := cmd.Flags().GetInt("page-size")
+	if err != nil {
+		return err
+	}
+	page, err := cmd.Flags().GetInt("page")
+	if err != nil {
+		return err
+	}
+	offset, err := cmd.Flags().GetInt("offset")
+	if err != nil {
+		return err
+	}
+	fields, err := cmd.Flags().GetString("fields")
+	if err != nil {
+		return err
+	}
+	filter, err := cmd.Flags().GetString("filter")
+	if err != nil {
+		return err
+	}
+	if filterOverride != "" {
+		filter = filterOverride
+	}
+	include, err := cmd.Flags().GetString("include")
+	if err != nil {
+		return err
+	}
+	verbose, err := cmd.Flags().GetInt("verbose")
+	if err != nil {
+		return err
+	}
+
+	url := getURLFromFlagOrEnv(cmd)
+
+	apiClient := api.NewClient(url, token)
+	apiClient.Verbose = verbose
+
+	opts := &api.ListOptions{
+		PageSize: pageSize,
+	}
+
+	if page > 0 {
+		opts.SetPage(page)
+	}
+
+	if offset > 0 {
+		opts.SetOffset(offset)
+	}
+
+	if fields != "" {
+		opts.SetFields(strings.Split(fields, ","))
+	}
+
+	if filter != "" {
+		var filterObj map[string]interface{}
+		if err := json.Unmarshal([]byte(filter), &filterObj); err == nil {
+			opts.SetFilterObj(filterObj)
+		} else {
+			return fmt.Errorf("invalid filter format. Use JSON syntax: filter={$and:[{$eq:[\"field\",\"value\"]}]}. Error: %v", err)
+		}
+	}
+
+	if include != "" {
+		opts.AddInclude(include)
+	}
+
+	resp, err := apiClient.List(cmd.Context(), module, opts)
+	if err != nil {
+		return output.ErrorResponse(err)
+	}
+
+	var outputFields []string
+	if fields != "" {
+		outputFields = strings.Split(fields, ",")
+	}
+
+	return output.ListResponse(resp, output.Options{
+		Format: outputFormat,
+		Fields: outputFields,
+		Full:   full,
+	})
 }
 
 func getCmd() *cobra.Command {
@@ -648,20 +661,19 @@ func searchCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			filter := args[1]
-			
-			cmd.Flags().Set("filter", filter)
-			return listCmd().RunE(cmd, args[:1])
+			return runListCommand(cmd, args[:1], filter)
 		},
 	}
 
-	cmd.Flags().AddFlag(listCmd().Flags().Lookup("output"))
-	cmd.Flags().AddFlag(listCmd().Flags().Lookup("full"))
-	cmd.Flags().AddFlag(listCmd().Flags().Lookup("verbose"))
-	cmd.Flags().AddFlag(listCmd().Flags().Lookup("page-size"))
-	cmd.Flags().AddFlag(listCmd().Flags().Lookup("page"))
-	cmd.Flags().AddFlag(listCmd().Flags().Lookup("offset"))
-	cmd.Flags().AddFlag(listCmd().Flags().Lookup("fields"))
-	cmd.Flags().AddFlag(listCmd().Flags().Lookup("include"))
+	cmd.Flags().Int("page-size", 20, "Items per page")
+	cmd.Flags().String("include", "", "Comma-separated relation names to include")
+	cmd.Flags().String("fields", "", "Comma-separated field names to include")
+	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, or csv")
+	cmd.Flags().String("filter", "", "Filter in JSON format")
+	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
+	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
+	cmd.Flags().Int("page", 1, "Page number")
+	cmd.Flags().Int("offset", 0, "Offset for pagination")
 
 	return cmd
 }

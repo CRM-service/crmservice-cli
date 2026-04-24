@@ -48,7 +48,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "", "Config file path")
 	rootCmd.PersistentFlags().String("url", "", "API base URL (overrides config)")
 	rootCmd.PersistentFlags().String("token", "", "Bearer token (overrides config)")
-	rootCmd.AddCommand(listCmd())
+	rootCmd.AddCommand(listCommand)
 	rootCmd.AddCommand(getCmd())
 	rootCmd.AddCommand(createCmd())
 	rootCmd.AddCommand(updateCmd())
