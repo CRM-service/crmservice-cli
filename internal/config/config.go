@@ -3,37 +3,38 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
-	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	API    APIConfig    `mapstructure:"api"`
-	Output OutputConfig `mapstructure:"output"`
-	Cache  CacheConfig  `mapstructure:"cache"`
-	Auth   AuthConfig   `mapstructure:"auth"`
+	API    APIConfig    `yaml:"api"`
+	Output OutputConfig `yaml:"output"`
+	Cache  CacheConfig  `yaml:"cache"`
+	Auth   AuthConfig   `yaml:"auth"`
 }
 
 type APIConfig struct {
-	URL     string `mapstructure:"url"`
-	Timeout int    `mapstructure:"timeout"`
+	URL     string `yaml:"url"`
+	Timeout int    `yaml:"timeout"`
 }
 
 type OutputConfig struct {
-	Format   string `mapstructure:"format"`
-	PageSize int    `mapstructure:"page_size"`
+	Format   string `yaml:"format"`
+	PageSize int    `yaml:"page_size"`
 }
 
 type CacheConfig struct {
-	SchemaDir   string `mapstructure:"schema_dir"`
-	TTLDays     int    `mapstructure:"ttl_days"`
-	AutoRefresh bool   `mapstructure:"auto_refresh"`
+	SchemaDir   string `yaml:"schema_dir"`
+	TTLDays     int    `yaml:"ttl_days"`
+	AutoRefresh bool   `yaml:"auto_refresh"`
 }
 
 type AuthConfig struct {
-	Token string `mapstructure:"token"`
-	Type  string `mapstructure:"type"`
+	Token string `yaml:"token"`
+	Type  string `yaml:"type"`
 }
 
 func addAPISuffix(url *string) {
@@ -52,21 +53,8 @@ func sanitizeURL(url string) string {
 	return url
 }
 
-func LoadConfig(configFile string) (*Config, error) {
-	v := viper.New()
-
-	if configFile != "" {
-		v.SetConfigFile(configFile)
-		if err := v.ReadInConfig(); err != nil {
-			return nil, err
-		}
-	}
-
-	v.SetEnvPrefix("CRMSERVICE")
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	v.AutomaticEnv()
-
-	config := &Config{
+func defaultConfig() *Config {
+	return &Config{
 		API: APIConfig{
 			Timeout: 30,
 		},
@@ -83,12 +71,49 @@ func LoadConfig(configFile string) (*Config, error) {
 			Type: "bearer",
 		},
 	}
+}
 
-	if err := v.Unmarshal(config); err != nil {
-		return nil, err
+func LoadConfig(configFile string) (*Config, error) {
+	config := defaultConfig()
+
+	if configFile != "" {
+		data, err := os.ReadFile(configFile)
+		if err != nil {
+			return nil, err
+		}
+		if err := yaml.Unmarshal(data, config); err != nil {
+			return nil, err
+		}
 	}
 
+	applyEnv(config)
+
 	return config, nil
+}
+
+func applyEnv(config *Config) {
+	if value := os.Getenv("CRMSERVICE_API_URL"); value != "" {
+		config.API.URL = value
+	}
+	if value := os.Getenv("CRMSERVICE_AUTH_TOKEN"); value != "" {
+		config.Auth.Token = value
+	}
+	if value := os.Getenv("CRMSERVICE_OUTPUT_FORMAT"); value != "" {
+		config.Output.Format = value
+	}
+	if value := os.Getenv("CRMSERVICE_PAGE_SIZE"); value != "" {
+		if pageSize, err := strconv.Atoi(value); err == nil {
+			config.Output.PageSize = pageSize
+		}
+	}
+	if value := os.Getenv("CRMSERVICE_TIMEOUT"); value != "" {
+		if timeout, err := strconv.Atoi(value); err == nil {
+			config.API.Timeout = timeout
+		}
+	}
+	if value := os.Getenv("CRMSERVICE_CACHE_DIR"); value != "" {
+		config.Cache.SchemaDir = value
+	}
 }
 
 func getCacheDir() string {

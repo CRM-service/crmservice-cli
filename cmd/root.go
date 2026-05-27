@@ -15,10 +15,10 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:              "crmservice",
-	Short:            "CRM-service CLI API client",
-	Long:             `CRM-service CLI - A command-line tool for interacting with the CRM-service REST API.`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) { initConfig(cmd) },
+	Use:               "crmservice",
+	Short:             "CRM-service CLI API client",
+	Long:              `CRM-service CLI - A command-line tool for interacting with the CRM-service REST API.`,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error { return initConfig(cmd) },
 }
 
 func Execute() error {
@@ -56,6 +56,7 @@ func init() {
 	rootCmd.AddCommand(fieldsCmd())
 	rootCmd.AddCommand(searchCmd())
 	rootCmd.AddCommand(modulesCmd())
+	rootCmd.AddCommand(whoamiCmd())
 }
 
 func LoadConfig() error {

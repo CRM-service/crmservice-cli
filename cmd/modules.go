@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
-	"time"
 
 	"crmservice/internal/api"
 	"crmservice/internal/output"
@@ -18,6 +17,10 @@ func modulesCmd() *cobra.Command {
 		Short: "List API modules",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			url := getURLFromFlagOrEnv(cmd)
+			token, err := getRequiredTokenFromFlagEnvConfig(cmd)
+			if err != nil {
+				return err
+			}
 			full, err := cmd.Flags().GetBool("full")
 			if err != nil {
 				return err
@@ -26,14 +29,14 @@ func modulesCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			outputFormat, err := cmd.Flags().GetString("output")
+			outputFormat, err := getOutputFormatFromFlagConfig(cmd)
 			if err != nil {
 				return err
 			}
 
 			client := &api.Client{
 				BaseURL:    strings.TrimSuffix(url, "/"),
-				HTTPClient: &http.Client{Timeout: 30 * time.Second},
+				HTTPClient: &http.Client{Timeout: getTimeoutFromConfig()},
 				DefaultHeaders: map[string]string{
 					"Content-Type": "application/vnd.api+json",
 					"Accept":       "application/vnd.api+json",
@@ -48,6 +51,9 @@ func modulesCmd() *cobra.Command {
 
 			req.Header.Set("Accept", "application/vnd.api+json")
 			req.Header.Set("Content-Type", "application/vnd.api+json")
+			if token != "" {
+				req.Header.Set("Authorization", "Bearer "+token)
+			}
 
 			resp, err := client.HTTPClient.Do(req)
 			if err != nil {

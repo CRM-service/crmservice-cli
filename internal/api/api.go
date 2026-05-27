@@ -42,13 +42,24 @@ func NewClient(baseURL, authToken string) *Client {
 	}
 }
 
+func (c *Client) requestHeaders(method string) map[string]string {
+	headers := make(map[string]string, len(c.DefaultHeaders))
+	for key, value := range c.DefaultHeaders {
+		if method == http.MethodGet && strings.EqualFold(key, "Content-Type") {
+			continue
+		}
+		headers[key] = value
+	}
+	return headers
+}
+
 func (c *Client) logRequest(method, path string) {
 	if c.Verbose >= 1 {
 		reqURL := c.BaseURL + "/" + strings.TrimPrefix(path, "/")
 		fmt.Printf("[REQUEST] %s %s\n", method, reqURL)
 	}
 	if c.Verbose >= 2 {
-		fmt.Printf("[REQUEST HEADERS] %v\n", c.DefaultHeaders)
+		fmt.Printf("[REQUEST HEADERS] %v\n", c.requestHeaders(method))
 	}
 }
 
@@ -162,7 +173,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body interface{}, 
 		return err
 	}
 
-	for key, value := range c.DefaultHeaders {
+	for key, value := range c.requestHeaders(method) {
 		req.Header.Set(key, value)
 	}
 	if c.AuthToken != "" {

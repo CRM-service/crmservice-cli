@@ -6,8 +6,10 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"crmservice/internal/api"
+	"crmservice/internal/config"
 	"crmservice/internal/output"
 
 	"github.com/spf13/cobra"
@@ -258,33 +260,37 @@ func TestSearchCmd(t *testing.T) {
 	cmd := searchCmd()
 
 	t.Run("command structure", func(t *testing.T) {
-		if cmd.Use != "search <module> <query>" {
-			t.Errorf("Use = %q, expected %q", cmd.Use, "search <module> <query>")
+		if cmd.Use != "search <module> <filter>" {
+			t.Errorf("Use = %q, expected %q", cmd.Use, "search <module> <filter>")
 		}
-		if cmd.Short != "Search records" {
-			t.Errorf("Short = %q, expected %q", cmd.Short, "Search records")
+		if cmd.Short != "Search records (alias for list --filter)" {
+			t.Errorf("Short = %q, expected %q", cmd.Short, "Search records (alias for list --filter)")
 		}
 	})
 
 	t.Run("args validation", func(t *testing.T) {
-		err := cmd.ValidateArgs([]string{"module", "query"})
+		err := cmd.ValidateArgs([]string{"module", `{"$eq":["name","Acme"]}`})
 		if err != nil {
 			t.Errorf("Expected no error for valid args, got: %v", err)
 		}
 
 		err = cmd.ValidateArgs([]string{"module"})
 		if err == nil {
-			t.Error("Expected error for missing query")
+			t.Error("Expected error for missing filter")
 		}
 	})
 
 	t.Run("flags", func(t *testing.T) {
-		flags := []string{"output", "full", "verbose"}
+		flags := []string{"page-size", "include", "fields", "output", "full", "verbose", "page", "offset"}
 		for _, name := range flags {
 			flag := cmd.Flags().Lookup(name)
 			if flag == nil {
 				t.Errorf("Missing flag: %s", name)
 			}
+		}
+
+		if flag := cmd.Flags().Lookup("filter"); flag != nil {
+			t.Error("search should not expose --filter because the filter is positional")
 		}
 	})
 }
@@ -367,6 +373,83 @@ func TestGetURLFromFlagOrEnv(t *testing.T) {
 				t.Errorf("getURLFromFlagOrEnv() = %q, expected %q", result, tc.expected)
 			}
 		})
+	}
+}
+
+func TestConfigFallbacks(t *testing.T) {
+	oldCfg := cfg
+	defer func() { cfg = oldCfg }()
+
+	cfg = &config.Config{
+		API: config.APIConfig{
+			URL:     "https://config.example.com",
+			Timeout: 42,
+		},
+		Auth: config.AuthConfig{
+			Token: "config-token",
+		},
+		Output: config.OutputConfig{
+			Format:   "json",
+			PageSize: 75,
+		},
+	}
+	t.Setenv("CRMSERVICE_API_URL", "")
+	t.Setenv("CRMSERVICE_AUTH_TOKEN", "")
+
+	cmd := &cobra.Command{}
+	cmd.Flags().String("url", "", "")
+	cmd.Flags().String("token", "", "")
+	cmd.Flags().StringP("output", "o", "table", "")
+	cmd.Flags().Int("page-size", 20, "")
+
+	if got := getURLFromFlagOrEnv(cmd); got != "https://config.example.com/api/v1" {
+		t.Errorf("getURLFromFlagOrEnv() = %q", got)
+	}
+
+	token, err := getTokenFromFlagEnvConfig(cmd)
+	if err != nil {
+		t.Fatalf("getTokenFromFlagEnvConfig() returned error: %v", err)
+	}
+	if token != "config-token" {
+		t.Errorf("token = %q", token)
+	}
+
+	outputFormat, err := getOutputFormatFromFlagConfig(cmd)
+	if err != nil {
+		t.Fatalf("getOutputFormatFromFlagConfig() returned error: %v", err)
+	}
+	if outputFormat != "json" {
+		t.Errorf("outputFormat = %q", outputFormat)
+	}
+
+	pageSize, err := getPageSizeFromFlagConfig(cmd)
+	if err != nil {
+		t.Fatalf("getPageSizeFromFlagConfig() returned error: %v", err)
+	}
+	if pageSize != 75 {
+		t.Errorf("pageSize = %d", pageSize)
+	}
+
+	if timeout := getTimeoutFromConfig(); timeout != 42*time.Second {
+		t.Errorf("timeout = %v", timeout)
+	}
+}
+
+func TestRequiredTokenValidation(t *testing.T) {
+	oldCfg := cfg
+	defer func() { cfg = oldCfg }()
+	cfg = nil
+	t.Setenv("CRMSERVICE_AUTH_TOKEN", "")
+
+	cmd := &cobra.Command{}
+	cmd.Flags().String("token", "", "")
+
+	_, err := getRequiredTokenFromFlagEnvConfig(cmd)
+	if err == nil {
+		t.Fatal("expected error for missing API token")
+	}
+	if !strings.Contains(err.Error(), "API token not provided") {
+		t.Errorf("unexpected error: %v", err)
 	}
 }
 

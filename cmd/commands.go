@@ -14,7 +14,6 @@ import (
 	"crmservice/internal/output"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 func ValidOutputFormat(format string) bool {
@@ -26,18 +25,7 @@ func ValidOutputFormat(format string) bool {
 	}
 }
 
-func getAPIURL() string {
-	v := viper.New()
-	v.SetEnvPrefix("CRMSERVICE")
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	v.AutomaticEnv()
-
-	url := v.GetString("api.url")
-	if url == "" {
-		fmt.Fprintf(os.Stderr, "Error: API URL not provided. Set CRMSERVICE_API_URL environment variable or use --url flag\n")
-		os.Exit(1)
-	}
-
+func normalizeAPIURL(url string) string {
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		url = "https://" + url
 	}
@@ -50,6 +38,19 @@ func getAPIURL() string {
 	}
 
 	return strings.TrimSuffix(url, "/")
+}
+
+func getAPIURL() string {
+	url := os.Getenv("CRMSERVICE_API_URL")
+	if url == "" && cfg != nil {
+		url = cfg.API.URL
+	}
+	if url == "" {
+		fmt.Fprintf(os.Stderr, "Error: API URL not provided. Set CRMSERVICE_API_URL environment variable, config api.url, or use --url flag\n")
+		os.Exit(1)
+	}
+
+	return normalizeAPIURL(url)
 }
 
 func getURLFromFlagOrEnv(cmd *cobra.Command) string {
@@ -60,22 +61,68 @@ func getURLFromFlagOrEnv(cmd *cobra.Command) string {
 	if url == "" {
 		url = os.Getenv("CRMSERVICE_API_URL")
 	}
+	if url == "" && cfg != nil {
+		url = cfg.API.URL
+	}
 	if url == "" {
 		url = getAPIURL()
 	}
 
-	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		url = "https://" + url
-	}
-	if strings.HasPrefix(url, "http://") {
-		url = "https://" + strings.TrimPrefix(url, "http://")
-	}
+	return normalizeAPIURL(url)
+}
 
-	if !strings.HasSuffix(url, "/api/v1") {
-		url = strings.TrimSuffix(url, "/") + "/api/v1"
+func getTokenFromFlagEnvConfig(cmd *cobra.Command) (string, error) {
+	token, err := cmd.Flags().GetString("token")
+	if err != nil {
+		return "", err
 	}
+	if token == "" {
+		token = os.Getenv("CRMSERVICE_AUTH_TOKEN")
+	}
+	if token == "" && cfg != nil {
+		token = cfg.Auth.Token
+	}
+	return token, nil
+}
 
-	return strings.TrimSuffix(url, "/")
+func getRequiredTokenFromFlagEnvConfig(cmd *cobra.Command) (string, error) {
+	token, err := getTokenFromFlagEnvConfig(cmd)
+	if err != nil {
+		return "", err
+	}
+	if token == "" {
+		return "", fmt.Errorf("API token not provided. Set CRMSERVICE_AUTH_TOKEN environment variable, config auth.token, or use --token flag")
+	}
+	return token, nil
+}
+
+func getOutputFormatFromFlagConfig(cmd *cobra.Command) (string, error) {
+	outputFormat, err := cmd.Flags().GetString("output")
+	if err != nil {
+		return "", err
+	}
+	if !cmd.Flags().Changed("output") && cfg != nil && cfg.Output.Format != "" {
+		outputFormat = cfg.Output.Format
+	}
+	return outputFormat, nil
+}
+
+func getPageSizeFromFlagConfig(cmd *cobra.Command) (int, error) {
+	pageSize, err := cmd.Flags().GetInt("page-size")
+	if err != nil {
+		return 0, err
+	}
+	if !cmd.Flags().Changed("page-size") && cfg != nil && cfg.Output.PageSize > 0 {
+		pageSize = cfg.Output.PageSize
+	}
+	return pageSize, nil
+}
+
+func getTimeoutFromConfig() time.Duration {
+	if cfg != nil && cfg.API.Timeout > 0 {
+		return time.Duration(cfg.API.Timeout) * time.Second
+	}
+	return 30 * time.Second
 }
 
 func listCmd() *cobra.Command {
@@ -84,108 +131,7 @@ func listCmd() *cobra.Command {
 		Short: "List records",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			module := args[0]
-			token, err := cmd.Flags().GetString("token")
-			if err != nil {
-				return err
-			}
-			if token == "" {
-				token = os.Getenv("CRMSERVICE_AUTH_TOKEN")
-			}
-			outputFormat, err := cmd.Flags().GetString("output")
-			if err != nil {
-				return err
-			}
-
-			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", outputFormat)
-			}
-			full, err := cmd.Flags().GetBool("full")
-			if err != nil {
-				return err
-			}
-
-			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", outputFormat)
-			}
-			pageSize, err := cmd.Flags().GetInt("page-size")
-			if err != nil {
-				return err
-			}
-			page, err := cmd.Flags().GetInt("page")
-			if err != nil {
-				return err
-			}
-			offset, err := cmd.Flags().GetInt("offset")
-			if err != nil {
-				return err
-			}
-			fields, err := cmd.Flags().GetString("fields")
-			if err != nil {
-				return err
-			}
-			filter, err := cmd.Flags().GetString("filter")
-			if err != nil {
-				return err
-			}
-			include, err := cmd.Flags().GetString("include")
-			if err != nil {
-				return err
-			}
-			verbose, err := cmd.Flags().GetInt("verbose")
-			if err != nil {
-				return err
-			}
-
-			url := getURLFromFlagOrEnv(cmd)
-
-			apiClient := api.NewClient(url, token)
-			apiClient.Verbose = verbose
-
-			opts := &api.ListOptions{
-				PageSize: pageSize,
-			}
-
-			if page > 0 {
-				opts.SetPage(page)
-			}
-
-			if offset > 0 {
-				opts.SetOffset(offset)
-			}
-
-			if fields != "" {
-				opts.SetFields(strings.Split(fields, ","))
-			}
-
-			if filter != "" {
-				var filterObj map[string]interface{}
-				if err := json.Unmarshal([]byte(filter), &filterObj); err == nil {
-					opts.SetFilterObj(filterObj)
-				} else {
-					return fmt.Errorf("invalid filter format. Use JSON syntax: filter={$and:[{$eq:[\"field\",\"value\"]}]}. Error: %v", err)
-				}
-			}
-
-			if include != "" {
-				opts.AddInclude(include)
-			}
-
-			resp, err := apiClient.List(cmd.Context(), module, opts)
-			if err != nil {
-				return output.ErrorResponse(err)
-			}
-
-			var outputFields []string
-			if fields != "" {
-				outputFields = strings.Split(fields, ",")
-			}
-
-			return output.ListResponse(resp, output.Options{
-				Format: outputFormat,
-				Fields: outputFields,
-				Full:   full,
-			})
+			return runListCommand(cmd, args, "")
 		},
 	}
 
@@ -202,6 +148,109 @@ func listCmd() *cobra.Command {
 	return cmd
 }
 
+func runListCommand(cmd *cobra.Command, args []string, filterOverride string) error {
+	module := args[0]
+	token, err := getRequiredTokenFromFlagEnvConfig(cmd)
+	if err != nil {
+		return err
+	}
+	outputFormat, err := getOutputFormatFromFlagConfig(cmd)
+	if err != nil {
+		return err
+	}
+
+	if !ValidOutputFormat(outputFormat) {
+		return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", outputFormat)
+	}
+	full, err := cmd.Flags().GetBool("full")
+	if err != nil {
+		return err
+	}
+
+	pageSize, err := getPageSizeFromFlagConfig(cmd)
+	if err != nil {
+		return err
+	}
+	page, err := cmd.Flags().GetInt("page")
+	if err != nil {
+		return err
+	}
+	offset, err := cmd.Flags().GetInt("offset")
+	if err != nil {
+		return err
+	}
+	fields, err := cmd.Flags().GetString("fields")
+	if err != nil {
+		return err
+	}
+	filter, err := cmd.Flags().GetString("filter")
+	if err != nil {
+		return err
+	}
+	if filterOverride != "" {
+		filter = filterOverride
+	}
+	include, err := cmd.Flags().GetString("include")
+	if err != nil {
+		return err
+	}
+	verbose, err := cmd.Flags().GetInt("verbose")
+	if err != nil {
+		return err
+	}
+
+	url := getURLFromFlagOrEnv(cmd)
+
+	apiClient := api.NewClient(url, token)
+	apiClient.Verbose = verbose
+	apiClient.HTTPClient.Timeout = getTimeoutFromConfig()
+
+	opts := &api.ListOptions{
+		PageSize: pageSize,
+	}
+
+	if page > 0 {
+		opts.SetPage(page)
+	}
+
+	if offset > 0 {
+		opts.SetOffset(offset)
+	}
+
+	if fields != "" {
+		opts.SetFields(strings.Split(fields, ","))
+	}
+
+	if filter != "" {
+		var filterObj map[string]interface{}
+		if err := json.Unmarshal([]byte(filter), &filterObj); err == nil {
+			opts.SetFilterObj(filterObj)
+		} else {
+			return fmt.Errorf("invalid filter format. Use JSON syntax: filter={$and:[{$eq:[\"field\",\"value\"]}]}. Error: %v", err)
+		}
+	}
+
+	if include != "" {
+		opts.AddInclude(include)
+	}
+
+	resp, err := apiClient.List(cmd.Context(), module, opts)
+	if err != nil {
+		return output.ErrorResponse(err)
+	}
+
+	var outputFields []string
+	if fields != "" {
+		outputFields = strings.Split(fields, ",")
+	}
+
+	return output.ListResponse(resp, output.Options{
+		Format: outputFormat,
+		Fields: outputFields,
+		Full:   full,
+	})
+}
+
 func getCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <module> <id>",
@@ -210,14 +259,11 @@ func getCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			module := args[0]
 			id := args[1]
-			token, err := cmd.Flags().GetString("token")
+			token, err := getRequiredTokenFromFlagEnvConfig(cmd)
 			if err != nil {
 				return err
 			}
-			if token == "" {
-				token = os.Getenv("CRMSERVICE_AUTH_TOKEN")
-			}
-			outputFormat, err := cmd.Flags().GetString("output")
+			outputFormat, err := getOutputFormatFromFlagConfig(cmd)
 			if err != nil {
 				return err
 			}
@@ -242,6 +288,7 @@ func getCmd() *cobra.Command {
 
 			apiClient := api.NewClient(url, token)
 			apiClient.Verbose = verbose
+			apiClient.HTTPClient.Timeout = getTimeoutFromConfig()
 
 			opts := &api.ListOptions{}
 
@@ -282,14 +329,11 @@ func createCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			module := args[0]
-			token, err := cmd.Flags().GetString("token")
+			token, err := getRequiredTokenFromFlagEnvConfig(cmd)
 			if err != nil {
 				return err
 			}
-			if token == "" {
-				token = os.Getenv("CRMSERVICE_AUTH_TOKEN")
-			}
-			outputFormat, err := cmd.Flags().GetString("output")
+			outputFormat, err := getOutputFormatFromFlagConfig(cmd)
 			if err != nil {
 				return err
 			}
@@ -314,6 +358,7 @@ func createCmd() *cobra.Command {
 
 			apiClient := api.NewClient(url, token)
 			apiClient.Verbose = verbose
+			apiClient.HTTPClient.Timeout = getTimeoutFromConfig()
 
 			data := make(map[string]interface{})
 			if fields, err := cmd.Flags().GetStringArray("field"); err == nil && len(fields) > 0 {
@@ -353,14 +398,11 @@ func updateCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			module := args[0]
 			id := args[1]
-			token, err := cmd.Flags().GetString("token")
+			token, err := getRequiredTokenFromFlagEnvConfig(cmd)
 			if err != nil {
 				return err
 			}
-			if token == "" {
-				token = os.Getenv("CRMSERVICE_AUTH_TOKEN")
-			}
-			outputFormat, err := cmd.Flags().GetString("output")
+			outputFormat, err := getOutputFormatFromFlagConfig(cmd)
 			if err != nil {
 				return err
 			}
@@ -385,6 +427,7 @@ func updateCmd() *cobra.Command {
 
 			apiClient := api.NewClient(url, token)
 			apiClient.Verbose = verbose
+			apiClient.HTTPClient.Timeout = getTimeoutFromConfig()
 
 			data := make(map[string]interface{})
 			if fields, err := cmd.Flags().GetStringArray("field"); err == nil && len(fields) > 0 {
@@ -424,12 +467,9 @@ func deleteCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			module := args[0]
 			id := args[1]
-			token, err := cmd.Flags().GetString("token")
+			token, err := getRequiredTokenFromFlagEnvConfig(cmd)
 			if err != nil {
 				return err
-			}
-			if token == "" {
-				token = os.Getenv("CRMSERVICE_AUTH_TOKEN")
 			}
 			verbose, err := cmd.Flags().GetInt("verbose")
 			if err != nil {
@@ -440,6 +480,7 @@ func deleteCmd() *cobra.Command {
 
 			apiClient := api.NewClient(url, token)
 			apiClient.Verbose = verbose
+			apiClient.HTTPClient.Timeout = getTimeoutFromConfig()
 
 			errDelete := apiClient.Delete(cmd.Context(), module, id)
 			if errDelete != nil {
@@ -463,14 +504,11 @@ func fieldsCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			module := args[0]
-			token, err := cmd.Flags().GetString("token")
+			token, err := getRequiredTokenFromFlagEnvConfig(cmd)
 			if err != nil {
 				return err
 			}
-			if token == "" {
-				token = os.Getenv("CRMSERVICE_AUTH_TOKEN")
-			}
-			outputFormat, err := cmd.Flags().GetString("output")
+			outputFormat, err := getOutputFormatFromFlagConfig(cmd)
 			if err != nil {
 				return err
 			}
@@ -485,7 +523,7 @@ func fieldsCmd() *cobra.Command {
 
 			url := getURLFromFlagOrEnv(cmd)
 
-			client := &http.Client{Timeout: 30 * time.Second}
+			client := &http.Client{Timeout: getTimeoutFromConfig()}
 
 			reqURL := strings.TrimSuffix(url, "/") + "/schema/" + module
 
@@ -643,65 +681,23 @@ func fieldsCmd() *cobra.Command {
 
 func searchCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "search <module> <query>",
-		Short: "Search records",
+		Use:   "search <module> <filter>",
+		Short: "Search records (alias for list --filter)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			module := args[0]
-			query := args[1]
-			token, err := cmd.Flags().GetString("token")
-			if err != nil {
-				return err
-			}
-			if token == "" {
-				token = os.Getenv("CRMSERVICE_AUTH_TOKEN")
-			}
-			outputFormat, err := cmd.Flags().GetString("output")
-			if err != nil {
-				return err
-			}
-
-			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", outputFormat)
-			}
-			full, err := cmd.Flags().GetBool("full")
-			if err != nil {
-				return err
-			}
-
-			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", outputFormat)
-			}
-			verbose, err := cmd.Flags().GetInt("verbose")
-			if err != nil {
-				return err
-			}
-
-			url := getURLFromFlagOrEnv(cmd)
-
-			apiClient := api.NewClient(url, token)
-			apiClient.Verbose = verbose
-
-			opts := &api.ListOptions{
-				PageSize: 20,
-			}
-			opts.AddFilter("search", query)
-
-			resp, err := apiClient.List(cmd.Context(), module, opts)
-			if err != nil {
-				return output.ErrorResponse(err)
-			}
-
-			return output.ListResponse(resp, output.Options{
-				Format: outputFormat,
-				Full:   full,
-			})
+			filter := args[1]
+			return runListCommand(cmd, args[:1], filter)
 		},
 	}
 
+	cmd.Flags().Int("page-size", 20, "Items per page")
+	cmd.Flags().String("include", "", "Comma-separated relation names to include")
+	cmd.Flags().String("fields", "", "Comma-separated field names to include")
 	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, or csv")
 	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
 	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
+	cmd.Flags().Int("page", 1, "Page number")
+	cmd.Flags().Int("offset", 0, "Offset for pagination")
 
 	return cmd
 }

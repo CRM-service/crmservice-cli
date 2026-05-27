@@ -12,7 +12,7 @@ go install github.com/example/crmservice@latest
 
 ### Config File
 
-Create `~/.config/crmservice/config.yaml`:
+Create a YAML config file such as `~/.config/crmservice/config.yaml`:
 
 ```yaml
 api:
@@ -50,7 +50,7 @@ Flags override config file and environment variables:
 ```
 --url        API base URL
 --token      Bearer token
---output     Output format: table or json
+--output     Output format: table, json, yaml, or csv
 --page-size  Items per page
 --timeout    Request timeout
 --cache-dir  Schema cache directory
@@ -62,35 +62,35 @@ Flags override config file and environment variables:
 
 ```bash
 # List all accounts
-crmservice accounts list
+crmservice list accounts
 
 # With pagination
-crmservice accounts list --page 2 --page-size 50
+crmservice list accounts --page 2 --page-size 50
 
 # With fields selection
-crmservice accounts list --fields name,email,phone
+crmservice list accounts --fields name,email,phone
 
-# With filters
-crmservice accounts list --filter "name=Test" --filter "status=Active"
+# With a JSON filter
+crmservice list accounts --filter '{"$and":[{"$eq":["name","Test Corp"]},{"$eq":["status","Active"]}]}'
 
 # Include related data
-crmservice accounts list --include contacts
+crmservice list accounts --include contacts
 
 # JSON output
-crmservice accounts list --output json
+crmservice list accounts --output json
 ```
 
 ### Get Record
 
 ```bash
-crmservice accounts get <account-id>
-crmservice accounts get <id> --fields name,email
+crmservice get accounts <account-id>
+crmservice get accounts <id> --fields name,email
 ```
 
 ### Create Record
 
 ```bash
-crmservice accounts create \
+crmservice create accounts \
   --field name="Test Corp" \
   --field email="test@example.com" \
   --field phone="123-456-7890"
@@ -99,31 +99,41 @@ crmservice accounts create \
 ### Update Record
 
 ```bash
-crmservice accounts update <id> --field name="New Name"
+crmservice update accounts <id> --field name="New Name"
 ```
 
 ### Delete Record
 
 ```bash
-crmservice accounts delete <id>
+crmservice delete accounts <id>
 ```
 
 ### Show Fields
 
 ```bash
-crmservice accounts fields
+crmservice fields accounts
 ```
 
 ### Search
 
+`search` is an alias for `list --filter`; pass the JSON filter as the second positional argument.
+
 ```bash
-crmservice accounts search "query string"
+crmservice search accounts '{"$eq":["name","Test Corp"]}'
+crmservice search contacts '{"$or":[{"$eq":["id","123"]},{"$eq":["id","456"]}]}' --fields id,first_name,last_name
 ```
 
 ### Discover Modules
 
 ```bash
 crmservice modules
+```
+
+### Show Current User
+
+```bash
+crmservice whoami
+crmservice whoami --output json
 ```
 
 ## JSON:API Compliance
