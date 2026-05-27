@@ -12,7 +12,7 @@ go install github.com/example/crmservice@latest
 
 ### Config File
 
-Create `~/.config/crmservice/config.yaml`:
+Create a YAML config file such as `~/.config/crmservice/config.yaml`:
 
 ```yaml
 api:

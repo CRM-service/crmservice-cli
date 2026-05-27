@@ -25,13 +25,7 @@ func ValidOutputFormat(format string) bool {
 	}
 }
 
-func getAPIURL() string {
-	url := os.Getenv("CRMSERVICE_API_URL")
-	if url == "" {
-		fmt.Fprintf(os.Stderr, "Error: API URL not provided. Set CRMSERVICE_API_URL environment variable or use --url flag\n")
-		os.Exit(1)
-	}
-
+func normalizeAPIURL(url string) string {
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		url = "https://" + url
 	}
@@ -46,6 +40,19 @@ func getAPIURL() string {
 	return strings.TrimSuffix(url, "/")
 }
 
+func getAPIURL() string {
+	url := os.Getenv("CRMSERVICE_API_URL")
+	if url == "" && cfg != nil {
+		url = cfg.API.URL
+	}
+	if url == "" {
+		fmt.Fprintf(os.Stderr, "Error: API URL not provided. Set CRMSERVICE_API_URL environment variable, config api.url, or use --url flag\n")
+		os.Exit(1)
+	}
+
+	return normalizeAPIURL(url)
+}
+
 func getURLFromFlagOrEnv(cmd *cobra.Command) string {
 	url, err := cmd.Flags().GetString("url")
 	if err != nil {
@@ -54,22 +61,68 @@ func getURLFromFlagOrEnv(cmd *cobra.Command) string {
 	if url == "" {
 		url = os.Getenv("CRMSERVICE_API_URL")
 	}
+	if url == "" && cfg != nil {
+		url = cfg.API.URL
+	}
 	if url == "" {
 		url = getAPIURL()
 	}
 
-	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		url = "https://" + url
-	}
-	if strings.HasPrefix(url, "http://") {
-		url = "https://" + strings.TrimPrefix(url, "http://")
-	}
+	return normalizeAPIURL(url)
+}
 
-	if !strings.HasSuffix(url, "/api/v1") {
-		url = strings.TrimSuffix(url, "/") + "/api/v1"
+func getTokenFromFlagEnvConfig(cmd *cobra.Command) (string, error) {
+	token, err := cmd.Flags().GetString("token")
+	if err != nil {
+		return "", err
 	}
+	if token == "" {
+		token = os.Getenv("CRMSERVICE_AUTH_TOKEN")
+	}
+	if token == "" && cfg != nil {
+		token = cfg.Auth.Token
+	}
+	return token, nil
+}
 
-	return strings.TrimSuffix(url, "/")
+func getRequiredTokenFromFlagEnvConfig(cmd *cobra.Command) (string, error) {
+	token, err := getTokenFromFlagEnvConfig(cmd)
+	if err != nil {
+		return "", err
+	}
+	if token == "" {
+		return "", fmt.Errorf("API token not provided. Set CRMSERVICE_AUTH_TOKEN environment variable, config auth.token, or use --token flag")
+	}
+	return token, nil
+}
+
+func getOutputFormatFromFlagConfig(cmd *cobra.Command) (string, error) {
+	outputFormat, err := cmd.Flags().GetString("output")
+	if err != nil {
+		return "", err
+	}
+	if !cmd.Flags().Changed("output") && cfg != nil && cfg.Output.Format != "" {
+		outputFormat = cfg.Output.Format
+	}
+	return outputFormat, nil
+}
+
+func getPageSizeFromFlagConfig(cmd *cobra.Command) (int, error) {
+	pageSize, err := cmd.Flags().GetInt("page-size")
+	if err != nil {
+		return 0, err
+	}
+	if !cmd.Flags().Changed("page-size") && cfg != nil && cfg.Output.PageSize > 0 {
+		pageSize = cfg.Output.PageSize
+	}
+	return pageSize, nil
+}
+
+func getTimeoutFromConfig() time.Duration {
+	if cfg != nil && cfg.API.Timeout > 0 {
+		return time.Duration(cfg.API.Timeout) * time.Second
+	}
+	return 30 * time.Second
 }
 
 func listCmd() *cobra.Command {
@@ -97,14 +150,11 @@ func listCmd() *cobra.Command {
 
 func runListCommand(cmd *cobra.Command, args []string, filterOverride string) error {
 	module := args[0]
-	token, err := cmd.Flags().GetString("token")
+	token, err := getRequiredTokenFromFlagEnvConfig(cmd)
 	if err != nil {
 		return err
 	}
-	if token == "" {
-		token = os.Getenv("CRMSERVICE_AUTH_TOKEN")
-	}
-	outputFormat, err := cmd.Flags().GetString("output")
+	outputFormat, err := getOutputFormatFromFlagConfig(cmd)
 	if err != nil {
 		return err
 	}
@@ -117,7 +167,7 @@ func runListCommand(cmd *cobra.Command, args []string, filterOverride string) er
 		return err
 	}
 
-	pageSize, err := cmd.Flags().GetInt("page-size")
+	pageSize, err := getPageSizeFromFlagConfig(cmd)
 	if err != nil {
 		return err
 	}
@@ -153,6 +203,7 @@ func runListCommand(cmd *cobra.Command, args []string, filterOverride string) er
 
 	apiClient := api.NewClient(url, token)
 	apiClient.Verbose = verbose
+	apiClient.HTTPClient.Timeout = getTimeoutFromConfig()
 
 	opts := &api.ListOptions{
 		PageSize: pageSize,
@@ -208,14 +259,11 @@ func getCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			module := args[0]
 			id := args[1]
-			token, err := cmd.Flags().GetString("token")
+			token, err := getRequiredTokenFromFlagEnvConfig(cmd)
 			if err != nil {
 				return err
 			}
-			if token == "" {
-				token = os.Getenv("CRMSERVICE_AUTH_TOKEN")
-			}
-			outputFormat, err := cmd.Flags().GetString("output")
+			outputFormat, err := getOutputFormatFromFlagConfig(cmd)
 			if err != nil {
 				return err
 			}
@@ -240,6 +288,7 @@ func getCmd() *cobra.Command {
 
 			apiClient := api.NewClient(url, token)
 			apiClient.Verbose = verbose
+			apiClient.HTTPClient.Timeout = getTimeoutFromConfig()
 
 			opts := &api.ListOptions{}
 
@@ -280,14 +329,11 @@ func createCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			module := args[0]
-			token, err := cmd.Flags().GetString("token")
+			token, err := getRequiredTokenFromFlagEnvConfig(cmd)
 			if err != nil {
 				return err
 			}
-			if token == "" {
-				token = os.Getenv("CRMSERVICE_AUTH_TOKEN")
-			}
-			outputFormat, err := cmd.Flags().GetString("output")
+			outputFormat, err := getOutputFormatFromFlagConfig(cmd)
 			if err != nil {
 				return err
 			}
@@ -312,6 +358,7 @@ func createCmd() *cobra.Command {
 
 			apiClient := api.NewClient(url, token)
 			apiClient.Verbose = verbose
+			apiClient.HTTPClient.Timeout = getTimeoutFromConfig()
 
 			data := make(map[string]interface{})
 			if fields, err := cmd.Flags().GetStringArray("field"); err == nil && len(fields) > 0 {
@@ -351,14 +398,11 @@ func updateCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			module := args[0]
 			id := args[1]
-			token, err := cmd.Flags().GetString("token")
+			token, err := getRequiredTokenFromFlagEnvConfig(cmd)
 			if err != nil {
 				return err
 			}
-			if token == "" {
-				token = os.Getenv("CRMSERVICE_AUTH_TOKEN")
-			}
-			outputFormat, err := cmd.Flags().GetString("output")
+			outputFormat, err := getOutputFormatFromFlagConfig(cmd)
 			if err != nil {
 				return err
 			}
@@ -383,6 +427,7 @@ func updateCmd() *cobra.Command {
 
 			apiClient := api.NewClient(url, token)
 			apiClient.Verbose = verbose
+			apiClient.HTTPClient.Timeout = getTimeoutFromConfig()
 
 			data := make(map[string]interface{})
 			if fields, err := cmd.Flags().GetStringArray("field"); err == nil && len(fields) > 0 {
@@ -422,12 +467,9 @@ func deleteCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			module := args[0]
 			id := args[1]
-			token, err := cmd.Flags().GetString("token")
+			token, err := getRequiredTokenFromFlagEnvConfig(cmd)
 			if err != nil {
 				return err
-			}
-			if token == "" {
-				token = os.Getenv("CRMSERVICE_AUTH_TOKEN")
 			}
 			verbose, err := cmd.Flags().GetInt("verbose")
 			if err != nil {
@@ -438,6 +480,7 @@ func deleteCmd() *cobra.Command {
 
 			apiClient := api.NewClient(url, token)
 			apiClient.Verbose = verbose
+			apiClient.HTTPClient.Timeout = getTimeoutFromConfig()
 
 			errDelete := apiClient.Delete(cmd.Context(), module, id)
 			if errDelete != nil {
@@ -461,14 +504,11 @@ func fieldsCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			module := args[0]
-			token, err := cmd.Flags().GetString("token")
+			token, err := getRequiredTokenFromFlagEnvConfig(cmd)
 			if err != nil {
 				return err
 			}
-			if token == "" {
-				token = os.Getenv("CRMSERVICE_AUTH_TOKEN")
-			}
-			outputFormat, err := cmd.Flags().GetString("output")
+			outputFormat, err := getOutputFormatFromFlagConfig(cmd)
 			if err != nil {
 				return err
 			}
@@ -483,7 +523,7 @@ func fieldsCmd() *cobra.Command {
 
 			url := getURLFromFlagOrEnv(cmd)
 
-			client := &http.Client{Timeout: 30 * time.Second}
+			client := &http.Client{Timeout: getTimeoutFromConfig()}
 
 			reqURL := strings.TrimSuffix(url, "/") + "/schema/" + module
 
