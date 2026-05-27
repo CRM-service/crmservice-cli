@@ -24,6 +24,7 @@ CRM-service CLI is a command-line tool for interacting with the CRM-service REST
 | `modules` | List available API modules |
 | `search` | Search records with a JSON filter (alias for `list --filter`) |
 | `update` | Update an existing record |
+| `whoami` | Show the authenticated CRM user |
 
 ## Global Flags
 
@@ -89,6 +90,12 @@ crmservice search contacts '{"$or":[{"$eq":["id","123"]},{"$eq":["id","456"]}]}'
 ```bash
 crmservice fields accounts
 crmservice fields accounts --output json
+```
+
+### Show Current User
+```bash
+crmservice whoami
+crmservice whoami --output json
 ```
 
 ### Completion Setup

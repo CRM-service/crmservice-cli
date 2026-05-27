@@ -56,6 +56,7 @@ func init() {
 	rootCmd.AddCommand(fieldsCmd())
 	rootCmd.AddCommand(searchCmd())
 	rootCmd.AddCommand(modulesCmd())
+	rootCmd.AddCommand(whoamiCmd())
 }
 
 func LoadConfig() error {

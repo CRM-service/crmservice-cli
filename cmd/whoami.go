@@ -1,0 +1,176 @@
+package cmd
+
+import (
+	"context"
+	"encoding/csv"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
+	"strings"
+
+	"crmservice/internal/api"
+
+	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
+)
+
+var whoamiFields = []string{"crm_url", "id", "name", "email", "is_admin", "first_name", "last_name"}
+
+func whoamiCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "whoami",
+		Short: "Show the authenticated CRM user",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			outputFormat, err := getOutputFormatFromFlagConfig(cmd)
+			if err != nil {
+				return err
+			}
+			if !ValidOutputFormat(outputFormat) {
+				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", outputFormat)
+			}
+
+			url := getOptionalURLFromFlagEnvConfig(cmd)
+			token, err := getTokenFromFlagEnvConfig(cmd)
+			if err != nil {
+				return err
+			}
+
+			if url == "" {
+				return outputWhoami(outputFormat, unauthenticatedWhoami(url, "missing_url"))
+			}
+			if token == "" {
+				return outputWhoami(outputFormat, unauthenticatedWhoami(url, "missing_token"))
+			}
+
+			user, err := fetchCurrentUser(cmd.Context(), url, token)
+			if err != nil {
+				if isUnauthorizedError(err) {
+					return outputWhoami(outputFormat, unauthenticatedWhoami(url, "invalid_token"))
+				}
+				return err
+			}
+
+			return outputWhoami(outputFormat, user)
+		},
+	}
+
+	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, or csv")
+	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
+
+	return cmd
+}
+
+func getOptionalURLFromFlagEnvConfig(cmd *cobra.Command) string {
+	url, _ := cmd.Flags().GetString("url")
+	if url == "" {
+		url = os.Getenv("CRMSERVICE_API_URL")
+	}
+	if url == "" && cfg != nil {
+		url = cfg.API.URL
+	}
+	if url == "" {
+		return ""
+	}
+	return normalizeAPIURL(url)
+}
+
+func fetchCurrentUser(ctx context.Context, url, token string) (map[string]interface{}, error) {
+	client := api.NewClient(url, token)
+	client.HTTPClient.Timeout = getTimeoutFromConfig()
+
+	resp := &api.SingleResponse{}
+	err := client.Do(ctx, http.MethodGet, "/user?fields[users]=id,name,email,is_admin,first_name,last_name", nil, resp)
+	if err != nil {
+		return nil, err
+	}
+
+	user := map[string]interface{}{
+		"crm_url": strings.TrimSuffix(url, "/"),
+	}
+
+	if data, ok := resp.Data.(map[string]interface{}); ok {
+		if id, ok := data["id"]; ok {
+			user["id"] = id
+		}
+		if attrs, ok := data["attributes"].(map[string]interface{}); ok {
+			for _, field := range whoamiFields[2:] {
+				if value, ok := attrs[field]; ok {
+					user[field] = value
+				}
+			}
+		}
+	}
+
+	return user, nil
+}
+
+func unauthenticatedWhoami(url, reason string) map[string]interface{} {
+	message := "Unauthenticated"
+	switch reason {
+	case "missing_url":
+		message = "CRM URL not provided"
+	case "missing_token":
+		message = "API token not provided"
+	case "invalid_token":
+		message = "API token is invalid or unauthorized"
+	}
+
+	return map[string]interface{}{
+		"crm_url":       strings.TrimSuffix(url, "/"),
+		"authenticated": false,
+		"error":         reason,
+		"message":       message,
+	}
+}
+
+func isUnauthorizedError(err error) bool {
+	apiErr, ok := err.(*api.Error)
+	return ok && (apiErr.Status == http.StatusUnauthorized || apiErr.Status == http.StatusForbidden)
+}
+
+func outputWhoami(format string, data map[string]interface{}) error {
+	columns := whoamiFields
+	if _, ok := data["error"]; ok {
+		columns = []string{"crm_url", "authenticated", "error", "message"}
+	}
+
+	switch format {
+	case "json":
+		encoder := json.NewEncoder(os.Stdout)
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(data)
+	case "yaml":
+		encoder := yaml.NewEncoder(os.Stdout)
+		encoder.SetIndent(2)
+		return encoder.Encode(data)
+	case "csv":
+		writer := csv.NewWriter(os.Stdout)
+		if err := writer.Write(columns); err != nil {
+			return err
+		}
+		if err := writer.Write(whoamiRow(data, columns)); err != nil {
+			return err
+		}
+		writer.Flush()
+		return writer.Error()
+	case "table":
+		for _, column := range columns {
+			fmt.Printf("%-20s | %v\n", column, data[column])
+		}
+		return nil
+	default:
+		return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", format)
+	}
+}
+
+func whoamiRow(data map[string]interface{}, columns []string) []string {
+	row := make([]string, len(columns))
+	for i, column := range columns {
+		if value, ok := data[column]; ok && value != nil {
+			row[i] = fmt.Sprintf("%v", value)
+		}
+	}
+	return row
+}

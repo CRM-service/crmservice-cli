@@ -129,6 +129,13 @@ crmservice search contacts '{"$or":[{"$eq":["id","123"]},{"$eq":["id","456"]}]}'
 crmservice modules
 ```
 
+### Show Current User
+
+```bash
+crmservice whoami
+crmservice whoami --output json
+```
+
 ## JSON:API Compliance
 
 The client follows JSON:API specification (v1.0) for:
