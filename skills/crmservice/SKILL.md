@@ -22,7 +22,7 @@ CRM-service CLI is a command-line tool for interacting with the CRM-service REST
 | `get` | Get a single record by ID |
 | `list` | List records with pagination |
 | `modules` | List available API modules |
-| `search` | Search records by query |
+| `search` | Search records with a JSON filter (alias for `list --filter`) |
 | `update` | Update an existing record |
 
 ## Global Flags
@@ -54,8 +54,8 @@ crmservice modules --output json
 crmservice list accounts
 crmservice list accounts --page 2 --page-size 50
 crmservice list accounts --fields "name,id,status"
-crmservice accounts list --filter '{$and:[{$eq:["status","value"]}]}'
-crmservice accounts list --filter '{"$or":[{"$eq":["id","123"]},{"$eq":["id","456"]}]}'
+crmservice list accounts --filter '{"$and":[{"$eq":["status","value"]}]}'
+crmservice list accounts --filter '{"$or":[{"$eq":["id","123"]},{"$eq":["id","456"]}]}'
 ```
 
 ### Get Record
@@ -81,7 +81,7 @@ crmservice delete accounts 123
 
 ### Search Records
 ```bash
-crmservice search accounts '{$and:[{$eq:["status","value"]}]}'
+crmservice search accounts '{"$and":[{"$eq":["status","value"]}]}'
 crmservice search contacts '{"$or":[{"$eq":["id","123"]},{"$eq":["id","456"]}]}' --fields "id,entity_no,first_name,last_name"
 ```
 
@@ -120,5 +120,6 @@ Set environment variables or use a config file:
 - Field schema may contain custom fields. Name prefixed with `cf_`
 - Field values for create/update use `--field "name=value"` syntax
 - Output formats support table (default), json, yaml, and csv
+- Filters must be valid JSON, for example: `'{"$eq":["status","Active"]}'`
 - Pagination uses --page and --page-size or --offset
 - Authentication must always be available by either: config file, environment variable or command-line argument

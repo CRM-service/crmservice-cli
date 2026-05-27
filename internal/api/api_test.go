@@ -712,35 +712,69 @@ func TestClient_AuthToken(t *testing.T) {
 }
 
 func TestClient_DefaultHeaders(t *testing.T) {
-	var contentType string
-	var accept string
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		contentType = r.Header.Get("Content-Type")
-		accept = r.Header.Get("Accept")
-		w.Header().Set("Content-Type", "application/vnd.api+json")
-		w.WriteHeader(http.StatusOK)
-		if err := json.NewEncoder(w).Encode(map[string]interface{}{"data": "test"}); err != nil {
-			t.Fatalf("json.Encode() failed: %v", err)
-		}
-	}))
-	defer server.Close()
-
-	client := NewClient(server.URL, "")
-
-	var result map[string]interface{}
-	err := client.Do(context.Background(), "POST", "/test", map[string]interface{}{"key": "value"}, &result)
-	if err != nil {
-		t.Fatalf("Do() returned error: %v", err)
-	}
-
 	expectedType := "application/vnd.api+json"
-	if contentType != expectedType {
-		t.Errorf("Content-Type header = %q, expected %q", contentType, expectedType)
-	}
-	if accept != expectedType {
-		t.Errorf("Accept header = %q, expected %q", accept, expectedType)
-	}
+
+	t.Run("POST includes content type and accept", func(t *testing.T) {
+		var contentType string
+		var accept string
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			contentType = r.Header.Get("Content-Type")
+			accept = r.Header.Get("Accept")
+			w.Header().Set("Content-Type", expectedType)
+			w.WriteHeader(http.StatusOK)
+			if err := json.NewEncoder(w).Encode(map[string]interface{}{"data": "test"}); err != nil {
+				t.Fatalf("json.Encode() failed: %v", err)
+			}
+		}))
+		defer server.Close()
+
+		client := NewClient(server.URL, "")
+
+		var result map[string]interface{}
+		err := client.Do(context.Background(), http.MethodPost, "/test", map[string]interface{}{"key": "value"}, &result)
+		if err != nil {
+			t.Fatalf("Do() returned error: %v", err)
+		}
+
+		if contentType != expectedType {
+			t.Errorf("Content-Type header = %q, expected %q", contentType, expectedType)
+		}
+		if accept != expectedType {
+			t.Errorf("Accept header = %q, expected %q", accept, expectedType)
+		}
+	})
+
+	t.Run("GET omits content type and includes accept", func(t *testing.T) {
+		var contentType string
+		var accept string
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			contentType = r.Header.Get("Content-Type")
+			accept = r.Header.Get("Accept")
+			w.Header().Set("Content-Type", expectedType)
+			w.WriteHeader(http.StatusOK)
+			if err := json.NewEncoder(w).Encode(map[string]interface{}{"data": "test"}); err != nil {
+				t.Fatalf("json.Encode() failed: %v", err)
+			}
+		}))
+		defer server.Close()
+
+		client := NewClient(server.URL, "")
+
+		var result map[string]interface{}
+		err := client.Do(context.Background(), http.MethodGet, "/test", nil, &result)
+		if err != nil {
+			t.Fatalf("Do() returned error: %v", err)
+		}
+
+		if contentType != "" {
+			t.Errorf("Content-Type header = %q, expected empty", contentType)
+		}
+		if accept != expectedType {
+			t.Errorf("Accept header = %q, expected %q", accept, expectedType)
+		}
+	})
 }
 
 func TestClient_HTTPClient(t *testing.T) {

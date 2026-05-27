@@ -78,12 +78,6 @@ func getURLFromFlagOrEnv(cmd *cobra.Command) string {
 	return strings.TrimSuffix(url, "/")
 }
 
-var listCommand *cobra.Command
-
-func init() {
-	listCommand = listCmd()
-}
-
 func listCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list <module>",
@@ -129,9 +123,6 @@ func runListCommand(cmd *cobra.Command, args []string, filterOverride string) er
 		return err
 	}
 
-	if !ValidOutputFormat(outputFormat) {
-		return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", outputFormat)
-	}
 	pageSize, err := cmd.Flags().GetInt("page-size")
 	if err != nil {
 		return err
@@ -669,7 +660,6 @@ func searchCmd() *cobra.Command {
 	cmd.Flags().String("include", "", "Comma-separated relation names to include")
 	cmd.Flags().String("fields", "", "Comma-separated field names to include")
 	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, or csv")
-	cmd.Flags().String("filter", "", "Filter in JSON format")
 	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
 	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
 	cmd.Flags().Int("page", 1, "Page number")

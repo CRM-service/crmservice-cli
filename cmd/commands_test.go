@@ -258,33 +258,37 @@ func TestSearchCmd(t *testing.T) {
 	cmd := searchCmd()
 
 	t.Run("command structure", func(t *testing.T) {
-		if cmd.Use != "search <module> <query>" {
-			t.Errorf("Use = %q, expected %q", cmd.Use, "search <module> <query>")
+		if cmd.Use != "search <module> <filter>" {
+			t.Errorf("Use = %q, expected %q", cmd.Use, "search <module> <filter>")
 		}
-		if cmd.Short != "Search records" {
-			t.Errorf("Short = %q, expected %q", cmd.Short, "Search records")
+		if cmd.Short != "Search records (alias for list --filter)" {
+			t.Errorf("Short = %q, expected %q", cmd.Short, "Search records (alias for list --filter)")
 		}
 	})
 
 	t.Run("args validation", func(t *testing.T) {
-		err := cmd.ValidateArgs([]string{"module", "query"})
+		err := cmd.ValidateArgs([]string{"module", `{"$eq":["name","Acme"]}`})
 		if err != nil {
 			t.Errorf("Expected no error for valid args, got: %v", err)
 		}
 
 		err = cmd.ValidateArgs([]string{"module"})
 		if err == nil {
-			t.Error("Expected error for missing query")
+			t.Error("Expected error for missing filter")
 		}
 	})
 
 	t.Run("flags", func(t *testing.T) {
-		flags := []string{"output", "full", "verbose"}
+		flags := []string{"page-size", "include", "fields", "output", "full", "verbose", "page", "offset"}
 		for _, name := range flags {
 			flag := cmd.Flags().Lookup(name)
 			if flag == nil {
 				t.Errorf("Missing flag: %s", name)
 			}
+		}
+
+		if flag := cmd.Flags().Lookup("filter"); flag != nil {
+			t.Error("search should not expose --filter because the filter is positional")
 		}
 	})
 }
