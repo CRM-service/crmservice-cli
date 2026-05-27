@@ -14,7 +14,6 @@ import (
 	"crmservice/internal/output"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 func ValidOutputFormat(format string) bool {
@@ -27,12 +26,7 @@ func ValidOutputFormat(format string) bool {
 }
 
 func getAPIURL() string {
-	v := viper.New()
-	v.SetEnvPrefix("CRMSERVICE")
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	v.AutomaticEnv()
-
-	url := v.GetString("api.url")
+	url := os.Getenv("CRMSERVICE_API_URL")
 	if url == "" {
 		fmt.Fprintf(os.Stderr, "Error: API URL not provided. Set CRMSERVICE_API_URL environment variable or use --url flag\n")
 		os.Exit(1)
