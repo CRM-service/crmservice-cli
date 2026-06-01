@@ -54,8 +54,8 @@ crmservice modules --output json
 ```bash
 crmservice list accounts
 crmservice list accounts --page 2 --page-size 50
-crmservice list accounts --fields "name,id,status"
-crmservice list accounts --filter '{"$and":[{"$eq":["status","value"]}]}'
+crmservice list accounts --fields "name,id,account_type"
+crmservice list accounts --filter '{"$and":[{"$eq":["account_type","Customer"]}]}'
 crmservice list accounts --filter '{"$or":[{"$eq":["id","123"]},{"$eq":["id","456"]}]}'
 ```
 
@@ -67,12 +67,20 @@ crmservice get accounts 123 --fields "name,email"
 
 ### Create Record
 ```bash
-crmservice create accounts --field "name=Acme Corp" --field "status=active"
+crmservice create accounts --field "name=Acme Corp" --field "account_type=Customer"
+
+# Or provide a complete JSON:API request body via stdin
+printf '{"data":{"type":"accounts","attributes":{"name":"Acme Corp","account_type":"Customer"}}}' \
+  | crmservice create accounts
 ```
 
 ### Update Record
 ```bash
-crmservice update accounts 123 --field "status=inactive" --field "notes=Updated"
+crmservice update accounts 123 --field "account_type=Partner" --field "notes=Updated"
+
+# Or provide a complete JSON:API request body via stdin
+printf '{"data":{"type":"accounts","id":"123","attributes":{"account_type":"Partner","notes":"Updated"}}}' \
+  | crmservice update accounts 123
 ```
 
 ### Delete Record
@@ -82,7 +90,7 @@ crmservice delete accounts 123
 
 ### Search Records
 ```bash
-crmservice search accounts '{"$and":[{"$eq":["status","value"]}]}'
+crmservice search accounts '{"$and":[{"$eq":["account_type","Customer"]}]}'
 crmservice search contacts '{"$or":[{"$eq":["id","123"]},{"$eq":["id","456"]}]}' --fields "id,entity_no,first_name,last_name"
 ```
 
@@ -112,6 +120,8 @@ crmservice completion fish > ~/.config/fish/completions/crmservice.fish
 
 ## Configuration
 
+By default, the CLI reads `~/.config/crmservice/config.yaml`. Use `--config` only to override this default path.
+
 Set environment variables or use a config file:
 
 - `CRMSERVICE_API_URL`: API base URL
@@ -126,7 +136,8 @@ Set environment variables or use a config file:
 - Schema defines the datatype fields. Invalid values must never be sent to the API
 - Field schema may contain custom fields. Name prefixed with `cf_`
 - Field values for create/update use `--field "name=value"` syntax
+- Create/update can alternatively read a complete JSON:API request body from stdin; do not combine stdin body input with `--field`
 - Output formats support table (default), json, yaml, and csv
-- Filters must be valid JSON, for example: `'{"$eq":["status","Active"]}'`
+- Filters must be valid JSON, for example: `'{"$eq":["account_type","Customer"]}'`
 - Pagination uses --page and --page-size or --offset
-- Authentication must always be available by either: config file, environment variable or command-line argument
+- Authentication must always be available by either: default config file, environment variable or command-line argument
