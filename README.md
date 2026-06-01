@@ -4,8 +4,26 @@ A command-line tool for interacting with the CRM-service REST API.
 
 ## Installation
 
+Download a prebuilt binary for your platform from the GitHub Releases page, or build from source:
+
 ```bash
-go install github.com/example/crmservice@latest
+go install .
+```
+
+## Automated CI and releases
+
+This repository includes GitHub Actions workflows for:
+
+- Pull request and push validation with tests on Linux, macOS, and Windows
+- `golangci-lint` linting
+- Cross-platform build artifacts for Linux, macOS, and Windows
+- Tagged releases with GoReleaser
+
+To publish a release, push a semantic version tag:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
 ## Configuration

@@ -34,10 +34,19 @@ func initConfig(cmd *cobra.Command) error {
 		return err
 	}
 
-	if url, _ := cmd.Flags().GetString("url"); url != "" {
+	url, err := cmd.Flags().GetString("url")
+	if err != nil {
+		return err
+	}
+	if url != "" {
 		cfg.API.URL = url
 	}
-	if token, _ := cmd.Flags().GetString("token"); token != "" {
+
+	token, err := cmd.Flags().GetString("token")
+	if err != nil {
+		return err
+	}
+	if token != "" {
 		cfg.Auth.Token = token
 	}
 

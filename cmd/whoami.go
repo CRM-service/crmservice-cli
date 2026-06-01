@@ -31,7 +31,10 @@ func whoamiCmd() *cobra.Command {
 				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", outputFormat)
 			}
 
-			url := getOptionalURLFromFlagEnvConfig(cmd)
+			url, err := getOptionalURLFromFlagEnvConfig(cmd)
+			if err != nil {
+				return err
+			}
 			token, err := getTokenFromFlagEnvConfig(cmd)
 			if err != nil {
 				return err
@@ -62,8 +65,11 @@ func whoamiCmd() *cobra.Command {
 	return cmd
 }
 
-func getOptionalURLFromFlagEnvConfig(cmd *cobra.Command) string {
-	url, _ := cmd.Flags().GetString("url")
+func getOptionalURLFromFlagEnvConfig(cmd *cobra.Command) (string, error) {
+	url, err := cmd.Flags().GetString("url")
+	if err != nil {
+		return "", err
+	}
 	if url == "" {
 		url = os.Getenv("CRMSERVICE_API_URL")
 	}
@@ -71,9 +77,9 @@ func getOptionalURLFromFlagEnvConfig(cmd *cobra.Command) string {
 		url = cfg.API.URL
 	}
 	if url == "" {
-		return ""
+		return "", nil
 	}
-	return normalizeAPIURL(url)
+	return normalizeAPIURL(url), nil
 }
 
 func fetchCurrentUser(ctx context.Context, url, token string) (map[string]interface{}, error) {
