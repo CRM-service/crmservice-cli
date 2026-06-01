@@ -60,12 +60,20 @@ func defaultConfig() *Config {
 func LoadConfig(configFile string) (*Config, error) {
 	config := defaultConfig()
 
-	if configFile != "" {
-		data, err := os.ReadFile(configFile)
+	configPath := configFile
+	usingDefaultPath := false
+	if configPath == "" {
+		configPath = defaultConfigFile()
+		usingDefaultPath = true
+	}
+
+	if configPath != "" {
+		data, err := os.ReadFile(configPath)
 		if err != nil {
-			return nil, err
-		}
-		if err := yaml.Unmarshal(data, config); err != nil {
+			if !(usingDefaultPath && os.IsNotExist(err)) {
+				return nil, err
+			}
+		} else if err := yaml.Unmarshal(data, config); err != nil {
 			return nil, err
 		}
 	}
@@ -73,6 +81,14 @@ func LoadConfig(configFile string) (*Config, error) {
 	applyEnv(config)
 
 	return config, nil
+}
+
+func defaultConfigFile() string {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(configDir, "crmservice", "config.yaml")
 }
 
 func applyEnv(config *Config) {

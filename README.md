@@ -30,7 +30,9 @@ git push origin v1.0.0
 
 ### Config File
 
-Create a YAML config file such as `~/.config/crmservice/config.yaml`:
+By default, the CLI reads `~/.config/crmservice/config.yaml`. Use `--config` only to override this default path.
+
+Create a YAML config file:
 
 ```yaml
 api:
@@ -63,7 +65,7 @@ CRMSERVICE_TIMEOUT        Request timeout in seconds
 
 ### Command-line Flags
 
-Flags override config file and environment variables:
+Flags override config file and environment variables. `--config` overrides the default config path:
 
 ```
 --url        API base URL
@@ -89,7 +91,7 @@ crmservice list accounts --page 2 --page-size 50
 crmservice list accounts --fields name,email,phone
 
 # With a JSON filter
-crmservice list accounts --filter '{"$and":[{"$eq":["name","Test Corp"]},{"$eq":["status","Active"]}]}'
+crmservice list accounts --filter '{"$and":[{"$eq":["name","Test Corp"]},{"$eq":["account_type","Customer"]}]}'
 
 # Include related data
 crmservice list accounts --include contacts
@@ -112,12 +114,20 @@ crmservice create accounts \
   --field name="Test Corp" \
   --field email="test@example.com" \
   --field phone="123-456-7890"
+
+# Or pass a JSON:API request body via stdin
+printf '{"data":{"type":"accounts","attributes":{"name":"Test Corp","email":"test@example.com"}}}' \
+  | crmservice create accounts
 ```
 
 ### Update Record
 
 ```bash
 crmservice update accounts <id> --field name="New Name"
+
+# Or pass a JSON:API request body via stdin
+printf '{"data":{"type":"accounts","id":"<id>","attributes":{"name":"New Name"}}}' \
+  | crmservice update accounts <id>
 ```
 
 ### Delete Record

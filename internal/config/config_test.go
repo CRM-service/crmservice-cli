@@ -8,6 +8,7 @@ import (
 
 func TestLoadConfigDefaults(t *testing.T) {
 	clearEnv(t)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	cfg, err := LoadConfig("")
 	if err != nil {
@@ -78,8 +79,73 @@ auth:
 	}
 }
 
+func TestLoadConfigDefaultPath(t *testing.T) {
+	clearEnv(t)
+
+	configHome := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", configHome)
+	configDir := filepath.Join(configHome, "crmservice")
+	if err := os.MkdirAll(configDir, 0o700); err != nil {
+		t.Fatalf("MkdirAll() returned error: %v", err)
+	}
+	path := filepath.Join(configDir, "config.yaml")
+	content := []byte(`api:
+  url: "https://default.example.com/api/v1"
+auth:
+  token: "token-from-default-path"
+`)
+	if err := os.WriteFile(path, content, 0o600); err != nil {
+		t.Fatalf("WriteFile() returned error: %v", err)
+	}
+
+	cfg, err := LoadConfig("")
+	if err != nil {
+		t.Fatalf("LoadConfig() returned error: %v", err)
+	}
+
+	if cfg.API.URL != "https://default.example.com/api/v1" {
+		t.Errorf("API.URL = %q", cfg.API.URL)
+	}
+	if cfg.Auth.Token != "token-from-default-path" {
+		t.Errorf("Auth.Token = %q", cfg.Auth.Token)
+	}
+}
+
+func TestLoadConfigExplicitPathOverridesDefault(t *testing.T) {
+	clearEnv(t)
+
+	configHome := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", configHome)
+	defaultDir := filepath.Join(configHome, "crmservice")
+	if err := os.MkdirAll(defaultDir, 0o700); err != nil {
+		t.Fatalf("MkdirAll() returned error: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(defaultDir, "config.yaml"), []byte(`api:
+  url: "https://default.example.com/api/v1"
+`), 0o600); err != nil {
+		t.Fatalf("WriteFile() returned error: %v", err)
+	}
+
+	explicitPath := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(explicitPath, []byte(`api:
+  url: "https://explicit.example.com/api/v1"
+`), 0o600); err != nil {
+		t.Fatalf("WriteFile() returned error: %v", err)
+	}
+
+	cfg, err := LoadConfig(explicitPath)
+	if err != nil {
+		t.Fatalf("LoadConfig() returned error: %v", err)
+	}
+
+	if cfg.API.URL != "https://explicit.example.com/api/v1" {
+		t.Errorf("API.URL = %q", cfg.API.URL)
+	}
+}
+
 func TestLoadConfigEnvOverrides(t *testing.T) {
 	clearEnv(t)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("CRMSERVICE_API_URL", "https://env.example.com")
 	t.Setenv("CRMSERVICE_AUTH_TOKEN", "env-token")
 	t.Setenv("CRMSERVICE_OUTPUT_FORMAT", "yaml")

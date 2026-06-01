@@ -125,6 +125,70 @@ func getTimeoutFromConfig() time.Duration {
 	return 30 * time.Second
 }
 
+type bodyInput struct {
+	body interface{}
+	raw  bool
+}
+
+func getBodyInput(cmd *cobra.Command) (*bodyInput, error) {
+	fields, err := cmd.Flags().GetStringArray("field")
+	if err != nil {
+		return nil, err
+	}
+
+	stdinBody, hasStdinBody, err := readStdinJSONAPIRequest(os.Stdin)
+	if err != nil {
+		return nil, err
+	}
+	if hasStdinBody {
+		if len(fields) > 0 {
+			return nil, fmt.Errorf("cannot use --field with JSON:API request body from stdin")
+		}
+		return &bodyInput{body: stdinBody, raw: true}, nil
+	}
+
+	data := make(map[string]interface{})
+	for _, f := range fields {
+		parts := strings.SplitN(f, "=", 2)
+		if len(parts) == 2 {
+			data[parts[0]] = parts[1]
+		}
+	}
+	return &bodyInput{body: data}, nil
+}
+
+func readStdinJSONAPIRequest(stdin *os.File) (map[string]interface{}, bool, error) {
+	info, err := stdin.Stat()
+	if err != nil {
+		return nil, false, err
+	}
+	if info.Mode()&os.ModeCharDevice != 0 {
+		return nil, false, nil
+	}
+
+	body, err := io.ReadAll(stdin)
+	if err != nil {
+		return nil, false, err
+	}
+	if strings.TrimSpace(string(body)) == "" {
+		return nil, false, nil
+	}
+
+	var request map[string]interface{}
+	if err := json.Unmarshal(body, &request); err != nil {
+		return nil, true, fmt.Errorf("invalid JSON:API request body from stdin: %w", err)
+	}
+	data, ok := request["data"]
+	if !ok {
+		return nil, true, fmt.Errorf("invalid JSON:API request body from stdin: missing data member")
+	}
+	if _, ok := data.(map[string]interface{}); !ok {
+		return nil, true, fmt.Errorf("invalid JSON:API request body from stdin: data must be an object")
+	}
+
+	return request, true, nil
+}
+
 func listCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list <module>",
@@ -360,17 +424,18 @@ func createCmd() *cobra.Command {
 			apiClient.Verbose = verbose
 			apiClient.HTTPClient.Timeout = getTimeoutFromConfig()
 
-			data := make(map[string]interface{})
-			if fields, err := cmd.Flags().GetStringArray("field"); err == nil && len(fields) > 0 {
-				for _, f := range fields {
-					parts := strings.SplitN(f, "=", 2)
-					if len(parts) == 2 {
-						data[parts[0]] = parts[1]
-					}
-				}
+			input, err := getBodyInput(cmd)
+			if err != nil {
+				return err
 			}
 
-			resp, err := apiClient.Create(cmd.Context(), module, data)
+			var resp *api.SingleResponse
+			if input.raw {
+				resp = &api.SingleResponse{}
+				err = apiClient.Do(cmd.Context(), http.MethodPost, "/"+module, input.body, resp)
+			} else {
+				resp, err = apiClient.Create(cmd.Context(), module, input.body)
+			}
 			if err != nil {
 				return output.ErrorResponse(err)
 			}
@@ -429,17 +494,18 @@ func updateCmd() *cobra.Command {
 			apiClient.Verbose = verbose
 			apiClient.HTTPClient.Timeout = getTimeoutFromConfig()
 
-			data := make(map[string]interface{})
-			if fields, err := cmd.Flags().GetStringArray("field"); err == nil && len(fields) > 0 {
-				for _, f := range fields {
-					parts := strings.SplitN(f, "=", 2)
-					if len(parts) == 2 {
-						data[parts[0]] = parts[1]
-					}
-				}
+			input, err := getBodyInput(cmd)
+			if err != nil {
+				return err
 			}
 
-			resp, err := apiClient.Update(cmd.Context(), module, id, data)
+			var resp *api.SingleResponse
+			if input.raw {
+				resp = &api.SingleResponse{}
+				err = apiClient.Do(cmd.Context(), http.MethodPatch, fmt.Sprintf("/%s/%s", module, id), input.body, resp)
+			} else {
+				resp, err = apiClient.Update(cmd.Context(), module, id, input.body)
+			}
 			if err != nil {
 				return output.ErrorResponse(err)
 			}

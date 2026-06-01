@@ -150,6 +150,78 @@ func TestGetCmd(t *testing.T) {
 	})
 }
 
+func TestReadStdinJSONAPIRequest(t *testing.T) {
+	stdin := pipeWithContent(t, `{"data":{"type":"accounts","attributes":{"name":"Test Corp"}}}`)
+
+	body, ok, err := readStdinJSONAPIRequest(stdin)
+	if err != nil {
+		t.Fatalf("readStdinJSONAPIRequest() returned error: %v", err)
+	}
+	if !ok {
+		t.Fatal("readStdinJSONAPIRequest() ok = false, expected true")
+	}
+	data, ok := body["data"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("body[data] = %T, expected object", body["data"])
+	}
+	if data["type"] != "accounts" {
+		t.Errorf("data[type] = %q, expected accounts", data["type"])
+	}
+}
+
+func TestReadStdinJSONAPIRequestRejectsInvalidBody(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+	}{
+		{name: "invalid json", body: `{`},
+		{name: "missing data", body: `{"attributes":{"name":"Test Corp"}}`},
+		{name: "data not object", body: `{"data":[]}`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stdin := pipeWithContent(t, tt.body)
+			_, ok, err := readStdinJSONAPIRequest(stdin)
+			if !ok {
+				t.Fatal("readStdinJSONAPIRequest() ok = false, expected true")
+			}
+			if err == nil {
+				t.Fatal("readStdinJSONAPIRequest() error = nil, expected error")
+			}
+		})
+	}
+}
+
+func TestReadStdinJSONAPIRequestIgnoresEmptyBody(t *testing.T) {
+	stdin := pipeWithContent(t, "\n  \t")
+
+	_, ok, err := readStdinJSONAPIRequest(stdin)
+	if err != nil {
+		t.Fatalf("readStdinJSONAPIRequest() returned error: %v", err)
+	}
+	if ok {
+		t.Fatal("readStdinJSONAPIRequest() ok = true, expected false")
+	}
+}
+
+func pipeWithContent(t *testing.T, content string) *os.File {
+	t.Helper()
+
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe() returned error: %v", err)
+	}
+	if _, err := writer.WriteString(content); err != nil {
+		t.Fatalf("writer.WriteString() returned error: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("writer.Close() returned error: %v", err)
+	}
+	t.Cleanup(func() { _ = reader.Close() })
+	return reader
+}
+
 func TestCreateCmd(t *testing.T) {
 	cmd := createCmd()
 
