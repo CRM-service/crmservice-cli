@@ -10,22 +10,6 @@ Download a prebuilt binary for your platform from the GitHub Releases page, or b
 go install .
 ```
 
-## Automated CI and releases
-
-This repository includes GitHub Actions workflows for:
-
-- Pull request and push validation with tests on Linux, macOS, and Windows
-- `golangci-lint` linting
-- Cross-platform build artifacts for Linux, macOS, and Windows
-- Tagged releases with GoReleaser
-
-To publish a release, push a semantic version tag:
-
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
-
 ## Configuration
 
 ### Config File
@@ -129,6 +113,22 @@ crmservice update accounts <id> --field name="New Name"
 printf '{"data":{"type":"accounts","id":"<id>","attributes":{"name":"New Name"}}}' \
   | crmservice update accounts <id>
 ```
+
+### Import Multiple NDJSON Records
+
+Create multiple records from an NDJSON file with one JSON:API request body per line:
+
+```bash
+# accounts.ndjson
+{"data":{"type":"accounts","attributes":{"name":"New Account","email":"new@example.com"}}}
+{"data":{"type":"accounts","attributes":{"name":"Another Account","email":"another@example.com"}}}
+```
+
+```bash
+parallel --pipe -L 1 -j 4 crmservice create accounts < accounts.ndjson
+```
+
+Adjust `-j 4` to control how many create requests run concurrently.
 
 ### Delete Record
 
