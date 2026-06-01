@@ -30,7 +30,13 @@ git push origin v1.0.0
 
 ### Config File
 
-By default, the CLI reads `~/.config/crmservice/config.yaml`. Use `--config` only to override this default path.
+By default, the CLI reads `config.yaml` from the operating system's user config directory:
+
+- Linux: `~/.config/crmservice/config.yaml`
+- macOS: `~/Library/Application Support/crmservice/config.yaml`
+- Windows: `%AppData%\\crmservice\\config.yaml`
+
+Use `--config` only to override this default path.
 
 Create a YAML config file:
 

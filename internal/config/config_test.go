@@ -8,7 +8,7 @@ import (
 
 func TestLoadConfigDefaults(t *testing.T) {
 	clearEnv(t)
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	setConfigDir(t, t.TempDir())
 
 	cfg, err := LoadConfig("")
 	if err != nil {
@@ -83,7 +83,7 @@ func TestLoadConfigDefaultPath(t *testing.T) {
 	clearEnv(t)
 
 	configHome := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", configHome)
+	setConfigDir(t, configHome)
 	configDir := filepath.Join(configHome, "crmservice")
 	if err := os.MkdirAll(configDir, 0o700); err != nil {
 		t.Fatalf("MkdirAll() returned error: %v", err)
@@ -115,7 +115,7 @@ func TestLoadConfigExplicitPathOverridesDefault(t *testing.T) {
 	clearEnv(t)
 
 	configHome := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", configHome)
+	setConfigDir(t, configHome)
 	defaultDir := filepath.Join(configHome, "crmservice")
 	if err := os.MkdirAll(defaultDir, 0o700); err != nil {
 		t.Fatalf("MkdirAll() returned error: %v", err)
@@ -145,7 +145,7 @@ func TestLoadConfigExplicitPathOverridesDefault(t *testing.T) {
 
 func TestLoadConfigEnvOverrides(t *testing.T) {
 	clearEnv(t)
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	setConfigDir(t, t.TempDir())
 	t.Setenv("CRMSERVICE_API_URL", "https://env.example.com")
 	t.Setenv("CRMSERVICE_AUTH_TOKEN", "env-token")
 	t.Setenv("CRMSERVICE_OUTPUT_FORMAT", "yaml")
@@ -173,6 +173,14 @@ func TestLoadConfigEnvOverrides(t *testing.T) {
 	if cfg.Cache.SchemaDir != "/tmp/env-cache" {
 		t.Errorf("Cache.SchemaDir = %q", cfg.Cache.SchemaDir)
 	}
+}
+
+func setConfigDir(t *testing.T, configDir string) {
+	t.Helper()
+
+	oldUserConfigDir := userConfigDir
+	userConfigDir = func() (string, error) { return configDir, nil }
+	t.Cleanup(func() { userConfigDir = oldUserConfigDir })
 }
 
 func clearEnv(t *testing.T) {
