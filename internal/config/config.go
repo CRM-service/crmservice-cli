@@ -37,22 +37,6 @@ type AuthConfig struct {
 	Type  string `yaml:"type"`
 }
 
-func addAPISuffix(url *string) {
-	if !strings.HasSuffix(*url, "/api/v1") {
-		*url = strings.TrimSuffix(*url, "/") + "/api/v1"
-	}
-}
-
-func sanitizeURL(url string) string {
-	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		return "https://" + url
-	}
-	if strings.HasPrefix(url, "http://") {
-		return "https://" + strings.TrimPrefix(url, "http://")
-	}
-	return url
-}
-
 func defaultConfig() *Config {
 	return &Config{
 		API: APIConfig{
