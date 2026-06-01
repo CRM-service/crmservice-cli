@@ -120,7 +120,7 @@ crmservice completion fish > ~/.config/fish/completions/crmservice.fish
 
 ## Configuration
 
-By default, the CLI reads `~/.config/crmservice/config.yaml`. Use `--config` only to override this default path.
+By default, the CLI reads `config.yaml` from the operating system's user config directory: Linux `~/.config/crmservice/config.yaml`, macOS `~/Library/Application Support/crmservice/config.yaml`, and Windows `%AppData%\\crmservice\\config.yaml`. Use `--config` only to override this default path.
 
 Set environment variables or use a config file:
 

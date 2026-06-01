@@ -83,8 +83,10 @@ func LoadConfig(configFile string) (*Config, error) {
 	return config, nil
 }
 
+var userConfigDir = os.UserConfigDir
+
 func defaultConfigFile() string {
-	configDir, err := os.UserConfigDir()
+	configDir, err := userConfigDir()
 	if err != nil {
 		return ""
 	}
