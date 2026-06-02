@@ -226,6 +226,14 @@ func pipeWithContent(t *testing.T, content string) *os.File {
 	return reader
 }
 
+func writeTestResponse(t *testing.T, w http.ResponseWriter, body string) {
+	t.Helper()
+
+	if _, err := w.Write([]byte(body)); err != nil {
+		t.Errorf("Write() returned error: %v", err)
+	}
+}
+
 func TestGetSchemaBodyUsesPersistedCache(t *testing.T) {
 	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -233,7 +241,7 @@ func TestGetSchemaBodyUsesPersistedCache(t *testing.T) {
 		if r.URL.Path != "/api/v1/schema/accounts" {
 			t.Errorf("request path = %q, expected /api/v1/schema/accounts", r.URL.Path)
 		}
-		_, _ = w.Write([]byte(`{"attributes":{"name":{"type":"string"}}}`))
+		writeTestResponse(t, w, `{"attributes":{"name":{"type":"string"}}}`)
 	}))
 	defer server.Close()
 
@@ -269,7 +277,7 @@ func TestGetSchemaBodyRefreshesExpiredCache(t *testing.T) {
 	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests++
-		_, _ = w.Write([]byte(`{"attributes":{"name":{"type":"string"}}}`))
+		writeTestResponse(t, w, `{"attributes":{"name":{"type":"string"}}}`)
 	}))
 	defer server.Close()
 
@@ -315,7 +323,7 @@ func TestGetSchemaBodyForceRefreshesCache(t *testing.T) {
 	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests++
-		_, _ = w.Write([]byte(fmt.Sprintf(`{"attributes":{"request_%d":{"type":"string"}}}`, requests)))
+		writeTestResponse(t, w, fmt.Sprintf(`{"attributes":{"request_%d":{"type":"string"}}}`, requests))
 	}))
 	defer server.Close()
 
