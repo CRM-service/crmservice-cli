@@ -97,6 +97,7 @@ crmservice search contacts '{"$or":[{"$eq":["id","123"]},{"$eq":["id","456"]}]}'
 ### Show Fields
 ```bash
 crmservice fields accounts
+crmservice fields accounts --force
 crmservice fields accounts --output json
 ```
 
@@ -132,6 +133,8 @@ Set environment variables or use a config file:
 - Module names are case-sensitive
 - To get available modules use the modules command
 - To get available fields for module use the fields [module] command. This schema also defines the datatype for the field
+- The fields command uses a persistent per-API schema cache in the OS user cache directory; cache TTL is controlled by `cache.ttl_days` and refresh behavior by `cache.auto_refresh`
+- Use `crmservice fields <module> --force` to bypass and regenerate the schema cache
 - All fields have name and label. API call must always use the name
 - Schema defines the datatype fields. Invalid values must never be sent to the API
 - Field schema may contain custom fields. Name prefixed with `cf_`

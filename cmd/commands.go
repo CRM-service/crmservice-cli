@@ -1,16 +1,19 @@
 package cmd
 
 import (
-	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"crmservice/internal/api"
+	"crmservice/internal/cache"
 	"crmservice/internal/output"
 
 	"github.com/spf13/cobra"
@@ -187,6 +190,109 @@ func readStdinJSONAPIRequest(stdin *os.File) (map[string]interface{}, bool, erro
 	}
 
 	return request, true, nil
+}
+
+func getSchemaBody(module, url, token string, verbose int, force bool) ([]byte, error) {
+	schemaCache := cache.NewSchemaCache(getSchemaCacheDir(url))
+	if cfg != nil {
+		schemaCache.TTLDays = cfg.Cache.TTLDays
+		schemaCache.AutoRefresh = cfg.Cache.AutoRefresh
+	}
+
+	if !force {
+		cachedBody, err := schemaCache.Load(module)
+		if err == nil {
+			if verbose >= 1 {
+				fmt.Printf("[CACHE] HIT %s\n", schemaCache.GetPath(module))
+			}
+			return cachedBody, nil
+		}
+		if !schemaCache.AutoRefresh {
+			return nil, fmt.Errorf("schema cache unavailable for %s and auto refresh is disabled: %w", module, err)
+		}
+		if verbose >= 1 {
+			fmt.Printf("[CACHE] MISS %s: %v\n", schemaCache.GetPath(module), err)
+		}
+	} else if verbose >= 1 {
+		fmt.Printf("[CACHE] FORCE REFRESH %s\n", schemaCache.GetPath(module))
+	}
+
+	body, err := fetchSchemaBody(module, url, token, verbose)
+	if err != nil {
+		return nil, err
+	}
+	if err := schemaCache.Save(module, body); err != nil {
+		return nil, fmt.Errorf("failed to save schema cache: %w", err)
+	}
+	return body, nil
+}
+
+func getSchemaCacheDir(url string) string {
+	cacheDir := ""
+	if cfg != nil {
+		cacheDir = cfg.Cache.SchemaDir
+	}
+	if cacheDir == "" {
+		cacheDir = filepath.Join(os.TempDir(), "crmservice", "schema")
+	}
+	return filepath.Join(cacheDir, cacheKey(url))
+}
+
+func cacheKey(value string) string {
+	value = strings.TrimSuffix(value, "/")
+	if value == "" {
+		return "default"
+	}
+	sum := sha256.Sum256([]byte(value))
+	return hex.EncodeToString(sum[:])
+}
+
+func fetchSchemaBody(module, url, token string, verbose int) ([]byte, error) {
+	client := &http.Client{Timeout: getTimeoutFromConfig()}
+	reqURL := strings.TrimSuffix(url, "/") + "/schema/" + module
+
+	if verbose >= 1 {
+		fmt.Printf("[REQUEST] GET %s\n", reqURL)
+	}
+
+	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Accept", "application/vnd.api+json")
+	req.Header.Set("Content-Type", "application/vnd.api+json")
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, output.ErrorResponse(err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if verbose >= 1 {
+		fmt.Printf("[RESPONSE] Status: %d\n", resp.StatusCode)
+	}
+	if verbose >= 2 {
+		fmt.Printf("[RESPONSE BODY]\n%s\n", string(body))
+	}
+
+	if resp.StatusCode >= 400 {
+		return nil, output.ErrorResponse(&api.Error{
+			Status:  resp.StatusCode,
+			Body:    body,
+			Message: string(body),
+		})
+	}
+
+	return body, nil
 }
 
 func listCmd() *cobra.Command {
@@ -586,44 +692,16 @@ func fieldsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-
-			url := getURLFromFlagOrEnv(cmd)
-
-			client := &http.Client{Timeout: getTimeoutFromConfig()}
-
-			reqURL := strings.TrimSuffix(url, "/") + "/schema/" + module
-
-			if verbose >= 1 {
-				fmt.Printf("[REQUEST] GET %s\n", reqURL)
-			}
-
-			req, err := http.NewRequest("GET", reqURL, nil)
+			force, err := cmd.Flags().GetBool("force")
 			if err != nil {
 				return err
 			}
 
-			req.Header.Set("Accept", "application/vnd.api+json")
-			req.Header.Set("Content-Type", "application/vnd.api+json")
-			if token != "" {
-				req.Header.Set("Authorization", "Bearer "+token)
-			}
+			url := getURLFromFlagOrEnv(cmd)
 
-			resp, err := client.Do(req)
+			body, err := getSchemaBody(module, url, token, verbose, force)
 			if err != nil {
-				return output.ErrorResponse(err)
-			}
-			defer resp.Body.Close()
-
-			if verbose >= 1 {
-				fmt.Printf("[RESPONSE] Status: %d\n", resp.StatusCode)
-			}
-			if verbose >= 2 {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return err
-				}
-				fmt.Printf("[RESPONSE BODY]\n%s\n", string(body))
-				resp.Body = io.NopCloser(bytes.NewReader(body))
+				return err
 			}
 
 			type RawAttributeData struct {
@@ -637,7 +715,7 @@ func fieldsCmd() *cobra.Command {
 			}
 
 			var rawResp map[string]interface{}
-			if err := json.NewDecoder(resp.Body).Decode(&rawResp); err != nil {
+			if err := json.Unmarshal(body, &rawResp); err != nil {
 				return output.ErrorResponse(err)
 			}
 
@@ -740,6 +818,7 @@ func fieldsCmd() *cobra.Command {
 
 	cmd.Flags().String("fields", "", "Comma-separated field names to include")
 	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, or csv")
+	cmd.Flags().Bool("force", false, "Force refresh schema cache")
 	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
 
 	return cmd

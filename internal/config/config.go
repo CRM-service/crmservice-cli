@@ -79,11 +79,14 @@ func LoadConfig(configFile string) (*Config, error) {
 	}
 
 	applyEnv(config)
+	expandPaths(config)
 
 	return config, nil
 }
 
 var userConfigDir = os.UserConfigDir
+var userCacheDir = os.UserCacheDir
+var userHomeDir = os.UserHomeDir
 
 func defaultConfigFile() string {
 	configDir, err := userConfigDir()
@@ -118,11 +121,34 @@ func applyEnv(config *Config) {
 	}
 }
 
-func getCacheDir() string {
-	if home, err := os.UserHomeDir(); err == nil {
-		return filepath.Join(home, ".cache", "crmservice", "schema")
+func expandPaths(config *Config) {
+	config.Cache.SchemaDir = expandHomePath(config.Cache.SchemaDir)
+}
+
+func expandHomePath(path string) string {
+	if path == "~" {
+		home, err := userHomeDir()
+		if err != nil {
+			return path
+		}
+		return home
 	}
-	return filepath.Join(os.TempDir(), "crmservice", "schema")
+	if strings.HasPrefix(path, "~/") || strings.HasPrefix(path, `~\`) {
+		home, err := userHomeDir()
+		if err != nil {
+			return path
+		}
+		return filepath.Join(home, path[2:])
+	}
+	return path
+}
+
+func getCacheDir() string {
+	cacheDir, err := userCacheDir()
+	if err != nil {
+		return filepath.Join(os.TempDir(), "crmservice", "schema")
+	}
+	return filepath.Join(cacheDir, "crmservice", "schema")
 }
 
 func (c *Config) GetAPIURL() string {
