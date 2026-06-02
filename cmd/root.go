@@ -18,6 +18,7 @@ var rootCmd = &cobra.Command{
 	Use:               "crmservice",
 	Short:             "CRM-service CLI API client",
 	Long:              `CRM-service CLI - A command-line tool for interacting with the CRM-service REST API.`,
+	Version:           versionString(),
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error { return initConfig(cmd) },
 }
 
@@ -54,6 +55,7 @@ func initConfig(cmd *cobra.Command) error {
 }
 
 func init() {
+	rootCmd.SetVersionTemplate("{{.Name}} {{.Version}}\n")
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "", "Config file path")
 	rootCmd.PersistentFlags().String("url", "", "API base URL (overrides config)")
 	rootCmd.PersistentFlags().String("token", "", "Bearer token (overrides config)")

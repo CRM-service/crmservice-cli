@@ -22,7 +22,7 @@ builds:
     flags:
       - -trimpath
     ldflags:
-      - -s -w
+      - "-s -w -X crmservice/cmd.version={{ .Tag }}"
 
 archives:
   - id: default
