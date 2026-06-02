@@ -34,7 +34,8 @@ output:
   page_size: 20
 
 cache:
-  schema_dir: "~/.cache/crmservice/schema"
+  # Optional. Defaults to the OS user cache directory under crmservice/schema.
+  schema_dir: ""
   ttl_days: 24
   auto_refresh: true
 
@@ -146,6 +147,7 @@ crmservice delete accounts <id>
 
 ```bash
 crmservice fields accounts
+crmservice fields accounts --force
 ```
 
 ### Search
@@ -181,8 +183,12 @@ The client follows JSON:API specification (v1.0) for:
 
 ## Schema Caching
 
-Schemas are cached per API instance to reduce API calls and improve performance.
+Schemas are cached per API instance to reduce API calls and improve performance. The `fields <module>` command reads from this cache first, and refreshes it when the cached schema is missing or older than `cache.ttl_days`. Use `fields <module> --force` to bypass and regenerate the cached schema.
 
-Cache location: `~/.cache/crmservice/schema/`
+Default cache locations:
 
-Cache TTL: 24 hours (configurable)
+- Linux: `~/.cache/crmservice/schema/`
+- macOS: `~/Library/Caches/crmservice/schema/`
+- Windows: `%LocalAppData%\\crmservice\\schema\\`
+
+Cache TTL: 24 days by default (configurable with `cache.ttl_days`).

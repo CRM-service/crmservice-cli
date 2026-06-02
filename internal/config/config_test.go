@@ -8,7 +8,9 @@ import (
 
 func TestLoadConfigDefaults(t *testing.T) {
 	clearEnv(t)
+	cacheDir := t.TempDir()
 	setConfigDir(t, t.TempDir())
+	setCacheDir(t, cacheDir)
 
 	cfg, err := LoadConfig("")
 	if err != nil {
@@ -26,6 +28,9 @@ func TestLoadConfigDefaults(t *testing.T) {
 	}
 	if cfg.Cache.TTLDays != 24 {
 		t.Errorf("Cache.TTLDays = %d, expected 24", cfg.Cache.TTLDays)
+	}
+	if cfg.Cache.SchemaDir != filepath.Join(cacheDir, "crmservice", "schema") {
+		t.Errorf("Cache.SchemaDir = %q", cfg.Cache.SchemaDir)
 	}
 	if !cfg.Cache.AutoRefresh {
 		t.Error("Cache.AutoRefresh = false, expected true")
@@ -143,6 +148,30 @@ func TestLoadConfigExplicitPathOverridesDefault(t *testing.T) {
 	}
 }
 
+func TestLoadConfigExpandsCacheSchemaDir(t *testing.T) {
+	clearEnv(t)
+	home := t.TempDir()
+	setHomeDir(t, home)
+
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	content := []byte(`cache:
+  schema_dir: "~/.cache/crmservice/schema"
+`)
+	if err := os.WriteFile(path, content, 0o600); err != nil {
+		t.Fatalf("WriteFile() returned error: %v", err)
+	}
+
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig() returned error: %v", err)
+	}
+
+	expected := filepath.Join(home, ".cache", "crmservice", "schema")
+	if cfg.Cache.SchemaDir != expected {
+		t.Errorf("Cache.SchemaDir = %q, expected %q", cfg.Cache.SchemaDir, expected)
+	}
+}
+
 func TestLoadConfigEnvOverrides(t *testing.T) {
 	clearEnv(t)
 	setConfigDir(t, t.TempDir())
@@ -181,6 +210,22 @@ func setConfigDir(t *testing.T, configDir string) {
 	oldUserConfigDir := userConfigDir
 	userConfigDir = func() (string, error) { return configDir, nil }
 	t.Cleanup(func() { userConfigDir = oldUserConfigDir })
+}
+
+func setCacheDir(t *testing.T, cacheDir string) {
+	t.Helper()
+
+	oldUserCacheDir := userCacheDir
+	userCacheDir = func() (string, error) { return cacheDir, nil }
+	t.Cleanup(func() { userCacheDir = oldUserCacheDir })
+}
+
+func setHomeDir(t *testing.T, home string) {
+	t.Helper()
+
+	oldUserHomeDir := userHomeDir
+	userHomeDir = func() (string, error) { return home, nil }
+	t.Cleanup(func() { userHomeDir = oldUserHomeDir })
 }
 
 func clearEnv(t *testing.T) {
