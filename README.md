@@ -122,16 +122,16 @@ printf '{"data":{"type":"accounts","id":"<id>","attributes":{"name":"New Name"}}
 
 ### Import Multiple NDJSON Records
 
-Create multiple records from an NDJSON file with one JSON:API request body per line:
+Create multiple records from an NDJSON file with one JSON:API request body per line. Each `crmservice create` invocation accepts one JSON:API object from stdin.
 
 ```bash
 # accounts.ndjson
-{"data":{"type":"accounts","attributes":{"name":"New Account","email":"new@example.com"}}}
-{"data":{"type":"accounts","attributes":{"name":"Another Account","email":"another@example.com"}}}
+{"data":{"type":"accounts","attributes":{"name":"New Account","account_type":"Customer"}}}
+{"data":{"type":"accounts","attributes":{"name":"Another Account","account_type":"Partner"}}}
 ```
 
 ```bash
-parallel --pipe -L 1 -j 4 crmservice create accounts < accounts.ndjson
+parallel --pipe -N 1 -j 4 crmservice create accounts < accounts.ndjson
 ```
 
 Adjust `-j 4` to control how many create requests run concurrently.
