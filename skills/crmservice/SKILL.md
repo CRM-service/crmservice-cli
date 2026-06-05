@@ -222,6 +222,182 @@ crmservice list contacts --filter '{"$eq":["account.account_type","Customer"]}'
 
 Use `crmservice filter reference` for an offline reference and `crmservice filter validate '<json>'` to catch JSON syntax errors and common operator shape mistakes before calling the API. Validation is intentionally lightweight; field existence and permissions are still checked by the backend.
 
+## Common Agent / Scripting Patterns
+
+These are preferred copy-pasteable idioms for agents and scripts. Always inspect module fields first when constructing writes or non-trivial filters.
+
+### Most Recently Created / Most Recently Updated
+
+```bash
+# Newest created account
+crmservice list accounts --sort "-created_at" --page-size 1 -o json
+
+# Newest updated account, if the module exposes updated_at
+crmservice list accounts --sort "-updated_at" --page-size 1 -o json
+
+# Same as JSONL for easy shell pipelines
+crmservice list accounts --sort "-created_at" --page-size 1 -o jsonl
+```
+
+If a module uses different timestamp field names, check first:
+
+```bash
+crmservice fields accounts -o json | jq -r '.[].name | select(test("created|updated|modified"; "i"))'
+```
+
+### Search by Name (Partial, Case-Insensitive)
+
+Use `$cts` for contains searches. On normal CRM text fields this is the most convenient partial-name search.
+
+```bash
+crmservice search accounts '{"$cts":["name","acme"]}' --fields "id,name,entity_no" -o json
+crmservice search contacts '{"$or":[{"$cts":["first_name","john"]},{"$cts":["last_name","john"]}]}' --fields "id,first_name,last_name,email" -o json
+```
+
+If you specifically need SQL wildcard matching, use `$like` with `%`:
+
+```bash
+crmservice search accounts '{"$like":["name","%acme%"]}' --fields "id,name" -o json
+```
+
+Filter values are case-insensitive.
+
+### List Owner / Creator Fields
+
+`--include` is supported by the CLI for `list` and `search`, but only for real JSON:API relationship names accepted by the backend. Do not assume names like `owner` or creator-related names are includable relationships; in many modules they are ordinary attributes or use installation-specific relation names. If the backend returns `The requested relationship (...) doesn't exist`, the `--include` name is invalid for that module.
+
+First discover owner/creator/assignee fields exposed as attributes:
+
+```bash
+crmservice fields accounts -o json \
+  | jq -r '.[] | select(.name|test("owner|created|creator|modified|assigned"; "i")) | [.name,.label,.type,.extras] | @tsv'
+```
+
+Then list only fields that actually exist in the schema output:
+
+```bash
+# Replace <owner_field> / <creator_field> with real field names from `crmservice fields`.
+crmservice list accounts --fields "id,name,<owner_field>,<creator_field>" -o json
+```
+
+If you know the module has a real relationship name, use `--include` with `--full` and inspect the returned JSON:API envelope:
+
+```bash
+# Replace <relationship> with a relationship name confirmed for the module/API.
+crmservice list accounts --include "<relationship>" --full -o json \
+  | jq '{data: [.data[] | {id, type, attributes, relationships}], included}'
+```
+
+Use `--full` when you need included resources, relationships, links, or metadata. Without `--full`, JSON/YAML list output is intentionally flattened to record attributes plus `id`.
+
+### Paginate Until Exhausted / Get Total First
+
+Get total and page metadata first:
+
+```bash
+crmservice list accounts --page 1 --page-size 1 --full -o json \
+  | jq '.meta'
+```
+
+Paginate until an empty page is returned:
+
+```bash
+page=1
+while :; do
+  batch=$(crmservice list accounts --page "$page" --page-size 100 -o json)
+  count=$(jq 'length' <<<"$batch")
+  [ "$count" -eq 0 ] && break
+  jq -c '.[]' <<<"$batch"
+  page=$((page + 1))
+done
+```
+
+If the backend returns a total in `.meta.total`, compute page count first:
+
+```bash
+page_size=100
+total=$(crmservice list accounts --page 1 --page-size 1 --full -o json | jq -r '.meta.total // 0')
+pages=$(( (total + page_size - 1) / page_size ))
+for page in $(seq 1 "$pages"); do
+  crmservice list accounts --page "$page" --page-size "$page_size" -o jsonl
+done
+```
+
+### Safe Create / Update Flow
+
+Use this flow before writes, especially in automated agent work:
+
+```bash
+# 1. Inspect real API field names, labels, and datatypes
+crmservice fields accounts -o json | jq -r '.[] | [.name,.label,.type,.nullable] | @tsv'
+
+# 2. Confirm target fields exist
+crmservice fields accounts -o json \
+  | jq -e 'map(.name) as $names | ["name","account_type"] | all(. as $f | $names | index($f))'
+
+# 3. Validate filter syntax before reading/updating target records
+crmservice filter validate '{"$eq":["name","Acme Corp"]}'
+
+# 4. Preview creates without sending them
+printf '%s\n' '{"name":"Acme Corp","account_type":"Customer"}' \
+  | crmservice bulk-create accounts --dry-run -o jsonl
+
+# 5. Send after validation/preview
+printf '%s\n' '{"name":"Acme Corp","account_type":"Customer"}' \
+  | crmservice bulk-create accounts --summary -o json
+
+# 6. For updates, require id and dry-run first
+crmservice search accounts '{"$eq":["name","Acme Corp"]}' -o jsonl \
+  | jq -c '.account_type = "Customer"' \
+  | crmservice bulk-update accounts --dry-run -o jsonl
+```
+
+Prefer `bulk-create --dry-run` / `bulk-update --dry-run` for generated JSONL payloads. Prefer `--summary` for production batch writes unless you need every returned record.
+
+### Effective jq Combinations
+
+Use `-o jsonl` when streaming records to `jq`; use `-o json` when you need an array.
+
+```bash
+# Pick only a few fields from JSONL output
+crmservice list accounts -o jsonl \
+  | jq -c '{id, name, entity_no, account_type}'
+
+# Select records with missing/blank values
+crmservice list contacts -o jsonl \
+  | jq -c 'select((.email // "") == "") | {id, first_name, last_name}'
+
+# Build a safe bulk-update stream: preserve id, modify one attribute
+crmservice search accounts '{"$eq":["account_type","Prospect"]}' -o jsonl \
+  | jq -c '{id, account_type: "Customer"}' \
+  | crmservice bulk-update accounts --dry-run -o jsonl
+
+# Remove read-only/system fields before bulk-create into another instance
+crmservice --url a.crmservice.fi list accounts -o jsonl \
+  | jq -c 'del(.id, .created_at, .updated_at)' \
+  | crmservice --url b.crmservice.fi bulk-create accounts --dry-run -o jsonl
+
+# Convert array JSON to JSONL
+crmservice list accounts -o json \
+  | jq -c '.[]'
+
+# Convert JSONL to an array for aggregate jq operations
+crmservice list accounts -o jsonl \
+  | jq -s 'group_by(.account_type) | map({account_type: .[0].account_type, count: length})'
+
+# Extract total from a full JSON:API response
+crmservice list accounts --full -o json --page-size 1 \
+  | jq -r '.meta.total // 0'
+```
+
+Battle-tested jq tips:
+
+- Use `jq -c` for compact one-object-per-line output that can be piped into `bulk-create` / `bulk-update`.
+- Use `//` for defaults: `(.email // "")`.
+- Use `del(...)` to remove fields that should not be written.
+- Use `jq -e` when a script should fail if a validation expression is false/null.
+- Keep `id` for `bulk-update`; remove or ignore `id` for `bulk-create`.
+
 ## Configuration
 
 By default, the CLI reads `config.yaml` from the operating system's user config directory: Linux `~/.config/crmservice/config.yaml`, macOS `~/Library/Application Support/crmservice/config.yaml`, and Windows `%AppData%\\crmservice\\config.yaml`. Use `--config` only to override this default path.
