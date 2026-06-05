@@ -90,6 +90,7 @@ type ListOptions struct {
 	Fields   []string
 	Filter   map[string]interface{}
 	Include  []string
+	Sort     []string
 }
 
 func NewListOptions() *ListOptions {
@@ -130,6 +131,11 @@ func (o *ListOptions) AddFilter(field, value string) *ListOptions {
 
 func (o *ListOptions) AddInclude(relation string) *ListOptions {
 	o.Include = append(o.Include, relation)
+	return o
+}
+
+func (o *ListOptions) SetSort(fields []string) *ListOptions {
+	o.Sort = fields
 	return o
 }
 
@@ -237,6 +243,9 @@ func (c *Client) List(ctx context.Context, module string, opts *ListOptions) (*R
 		}
 		if len(opts.Include) > 0 {
 			query.Set("include", strings.Join(opts.Include, ","))
+		}
+		if len(opts.Sort) > 0 {
+			query.Set("sort", strings.Join(opts.Sort, ","))
 		}
 	}
 

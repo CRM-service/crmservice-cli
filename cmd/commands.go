@@ -128,6 +128,18 @@ func getTimeoutFromConfig() time.Duration {
 	return 30 * time.Second
 }
 
+func splitCommaSeparated(value string) []string {
+	parts := strings.Split(value, ",")
+	items := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			items = append(items, part)
+		}
+	}
+	return items
+}
+
 type bodyInput struct {
 	body interface{}
 	raw  bool
@@ -308,6 +320,7 @@ func listCmd() *cobra.Command {
 	cmd.Flags().Int("page-size", 20, "Items per page")
 	cmd.Flags().String("include", "", "Comma-separated relation names to include")
 	cmd.Flags().String("fields", "", "Comma-separated field names to include")
+	cmd.Flags().String("sort", "", "Comma-separated field names to sort by (prefix with - for descending)")
 	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, or csv")
 	cmd.Flags().String("filter", "", "Filter in JSON format")
 	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
@@ -353,12 +366,16 @@ func runListCommand(cmd *cobra.Command, args []string, filterOverride string) er
 	if err != nil {
 		return err
 	}
-	filter, err := cmd.Flags().GetString("filter")
+	sort, err := cmd.Flags().GetString("sort")
 	if err != nil {
 		return err
 	}
-	if filterOverride != "" {
-		filter = filterOverride
+	filter := filterOverride
+	if filter == "" {
+		filter, err = cmd.Flags().GetString("filter")
+		if err != nil {
+			return err
+		}
 	}
 	include, err := cmd.Flags().GetString("include")
 	if err != nil {
@@ -388,7 +405,11 @@ func runListCommand(cmd *cobra.Command, args []string, filterOverride string) er
 	}
 
 	if fields != "" {
-		opts.SetFields(strings.Split(fields, ","))
+		opts.SetFields(splitCommaSeparated(fields))
+	}
+
+	if sort != "" {
+		opts.SetSort(splitCommaSeparated(sort))
 	}
 
 	if filter != "" {
@@ -411,7 +432,7 @@ func runListCommand(cmd *cobra.Command, args []string, filterOverride string) er
 
 	var outputFields []string
 	if fields != "" {
-		outputFields = strings.Split(fields, ",")
+		outputFields = splitCommaSeparated(fields)
 	}
 
 	return output.ListResponse(resp, output.Options{
@@ -463,7 +484,7 @@ func getCmd() *cobra.Command {
 			opts := &api.ListOptions{}
 
 			if fields, err := cmd.Flags().GetString("fields"); err == nil && fields != "" {
-				opts.SetFields(strings.Split(fields, ","))
+				opts.SetFields(splitCommaSeparated(fields))
 			}
 
 			resp, err := apiClient.Get(cmd.Context(), module, id, opts)
@@ -473,7 +494,7 @@ func getCmd() *cobra.Command {
 
 			var outputFields []string
 			if fields, err := cmd.Flags().GetString("fields"); err == nil && fields != "" {
-				outputFields = strings.Split(fields, ",")
+				outputFields = splitCommaSeparated(fields)
 			}
 
 			return output.ItemResponse(resp, output.Options{
@@ -838,6 +859,7 @@ func searchCmd() *cobra.Command {
 	cmd.Flags().Int("page-size", 20, "Items per page")
 	cmd.Flags().String("include", "", "Comma-separated relation names to include")
 	cmd.Flags().String("fields", "", "Comma-separated field names to include")
+	cmd.Flags().String("sort", "", "Comma-separated field names to sort by (prefix with - for descending)")
 	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, or csv")
 	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
 	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")

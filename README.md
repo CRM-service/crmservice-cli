@@ -81,6 +81,12 @@ crmservice list accounts --page 2 --page-size 50
 # With fields selection
 crmservice list accounts --fields name,email,phone
 
+# Sort contacts by last name, then first name (JSON:API sort syntax)
+crmservice list contacts --sort last_name,first_name
+
+# Show newest accounts first
+crmservice list accounts --sort -created_at
+
 # With a JSON filter
 crmservice list accounts --filter '{"$and":[{"$eq":["name","Test Corp"]},{"$eq":["account_type","Customer"]}]}'
 
@@ -157,6 +163,7 @@ crmservice fields accounts --force
 ```bash
 crmservice search accounts '{"$eq":["name","Test Corp"]}'
 crmservice search contacts '{"$or":[{"$eq":["id","123"]},{"$eq":["id","456"]}]}' --fields id,first_name,last_name
+crmservice search contacts '{"$eq":["mailing_city","Helsinki"]}' --sort last_name,first_name
 ```
 
 ### Discover Modules
@@ -179,6 +186,7 @@ The client follows JSON:API specification (v1.0) for:
 - Pagination with `page` and `page_size` parameters
 - Sparse fieldsets with `fields` parameter
 - Filtering with `filter` parameter
+- Sorting with `sort` parameter (comma-separated fields, prefix with `-` for descending)
 - Compound documents with `include` parameter
 
 ## Schema Caching

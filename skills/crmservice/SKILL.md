@@ -55,6 +55,8 @@ crmservice modules --output json
 crmservice list accounts
 crmservice list accounts --page 2 --page-size 50
 crmservice list accounts --fields "name,id,account_type"
+crmservice list contacts --sort "last_name,first_name"
+crmservice list accounts --sort "-created_at"
 crmservice list accounts --filter '{"$and":[{"$eq":["account_type","Customer"]}]}'
 crmservice list accounts --filter '{"$or":[{"$eq":["id","123"]},{"$eq":["id","456"]}]}'
 ```
@@ -92,6 +94,7 @@ crmservice delete accounts 123
 ```bash
 crmservice search accounts '{"$and":[{"$eq":["account_type","Customer"]}]}'
 crmservice search contacts '{"$or":[{"$eq":["id","123"]},{"$eq":["id","456"]}]}' --fields "id,entity_no,first_name,last_name"
+crmservice search contacts '{"$eq":["mailing_city","Helsinki"]}' --sort "last_name,first_name"
 ```
 
 ### Show Fields
@@ -143,4 +146,5 @@ Set environment variables or use a config file:
 - Output formats support table (default), json, yaml, and csv
 - Filters must be valid JSON, for example: `'{"$eq":["account_type","Customer"]}'`
 - Pagination uses --page and --page-size or --offset
+- List/search sorting uses JSON:API `--sort` syntax: comma-separated fields, with `-` prefix for descending (for example `--sort "last_name,first_name"` or `--sort "-created_at"`)
 - Authentication must always be available by either: default config file, environment variable or command-line argument

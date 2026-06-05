@@ -74,7 +74,7 @@ func TestListCmd(t *testing.T) {
 	})
 
 	t.Run("flags", func(t *testing.T) {
-		flags := []string{"page-size", "fields", "output", "filter", "full", "verbose", "page", "offset"}
+		flags := []string{"page-size", "fields", "sort", "output", "filter", "full", "verbose", "page", "offset"}
 		for _, name := range flags {
 			flag := cmd.Flags().Lookup(name)
 			if flag == nil {
@@ -503,7 +503,7 @@ func TestSearchCmd(t *testing.T) {
 	})
 
 	t.Run("flags", func(t *testing.T) {
-		flags := []string{"page-size", "include", "fields", "output", "full", "verbose", "page", "offset"}
+		flags := []string{"page-size", "include", "fields", "sort", "output", "full", "verbose", "page", "offset"}
 		for _, name := range flags {
 			flag := cmd.Flags().Lookup(name)
 			if flag == nil {
