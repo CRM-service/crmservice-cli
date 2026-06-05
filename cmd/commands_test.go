@@ -469,7 +469,7 @@ func TestFieldsCmd(t *testing.T) {
 	})
 
 	t.Run("flags", func(t *testing.T) {
-		flags := []string{"fields", "output", "force", "verbose"}
+		flags := []string{"fields", "output", "full", "force", "verbose"}
 		for _, name := range flags {
 			flag := cmd.Flags().Lookup(name)
 			if flag == nil {

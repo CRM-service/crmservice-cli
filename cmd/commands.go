@@ -717,6 +717,10 @@ func fieldsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			full, err := cmd.Flags().GetBool("full")
+			if err != nil {
+				return err
+			}
 
 			url := getURLFromFlagOrEnv(cmd)
 
@@ -821,24 +825,54 @@ func fieldsCmd() *cobra.Command {
 				fieldList = append(fieldList, field)
 			}
 
-			if len(primaryKey) > 0 {
+			// Annotate each field record with "primary": true for primary key fields.
+			// This moves the primary key information into the structured output
+			// so that machine consumers (jq etc.) can use it directly without
+			// special parsing or prefix stripping.
+			pkSet := make(map[string]bool, len(primaryKey))
+			for _, pk := range primaryKey {
+				pkSet[pk] = true
+			}
+			for _, f := range fieldList {
+				if name, ok := f["name"].(string); ok && pkSet[name] {
+					f["primary"] = true
+				}
+			}
+
+			// Only print the human-readable "Primary Key: ..." line for table output.
+			// For json/jsonl/yaml/csv (used heavily by agents and scripts) we keep
+			// the output clean and include the info via the "primary" annotations above.
+			if outputFormat == "table" && len(primaryKey) > 0 {
 				fmt.Printf("Primary Key: %v\n", primaryKey)
 			}
 
+			// Choose what to emit as the list data.
+			data := interface{}(fieldList)
+			if full {
+				// When --full is requested, return the original complete schema
+				// document from the backend (contains "primary-key", all attribute
+				// details the server knows about, etc.). This only affects
+				// structured output formats; table still gets a nice view.
+				if outputFormat != "table" {
+					data = rawResp
+				}
+			}
+
 			return output.ListResponse(&api.Response{
-				Data:  fieldList,
+				Data:  data,
 				Meta:  nil,
 				Links: nil,
 			}, output.Options{
 				Format:  outputFormat,
 				Columns: []string{"name", "type", "size", "scale", "nullable", "defaultValue", "label"},
-				Full:    false,
+				Full:    full,
 			})
 		},
 	}
 
 	cmd.Flags().String("fields", "", "Comma-separated field names to include")
 	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
+	cmd.Flags().Bool("full", false, "Include full raw schema response from the backend")
 	cmd.Flags().Bool("force", false, "Force refresh schema cache")
 	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
 

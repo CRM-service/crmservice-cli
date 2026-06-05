@@ -36,7 +36,8 @@ All commands support these global flags:
 - `--config string`: Config file path
 - `--token string`: Bearer token (overrides config)
 - `--url string`: API base URL (overrides config)
-- `--verbose int`: Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)
+
+Most commands also support `--verbose int` (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed request/response logging).
 
 ## Common Flags
 
@@ -126,7 +127,12 @@ crmservice search contacts '{"$eq":["mailing_city","Helsinki"]}' --sort "last_na
 crmservice fields accounts
 crmservice fields accounts --force
 crmservice fields accounts --output json
+crmservice fields accounts --full -o json   # full raw backend schema (envelope)
 ```
+
+The default output for `-o json` / `-o jsonl` etc. is a clean array of field objects. Each field includes at minimum `name`, `type`, `label`, `nullable`. Primary key field(s) are marked with `"primary": true`.
+
+Use `--full` to receive the complete raw schema document returned by the backend (under the JSON:API envelope for structured formats).
 
 ### Filter Language Tooling
 ```bash
@@ -414,6 +420,8 @@ Set environment variables or use a config file:
 - To get available fields for module use the fields [module] command. This schema also defines the datatype for the field
 - The fields command uses a persistent per-API schema cache in the OS user cache directory; cache TTL is controlled by `cache.ttl_days` and refresh behavior by `cache.auto_refresh`
 - Use `crmservice fields <module> --force` to bypass and regenerate the schema cache
+- `fields -o json` (and jsonl etc.) produces clean structured output. Primary key field(s) are annotated with `"primary": true` so you can do `jq '.[] | select(.primary) | .name'`.
+- Use `crmservice fields <module> --full -o json` to get the complete raw schema response from the backend (including every detail the server knows about each attribute).
 - All fields have name and label. API call must always use the name
 - Schema defines the datatype fields. Invalid values must never be sent to the API
 - Field schema may contain custom fields. Name prefixed with `cf_`

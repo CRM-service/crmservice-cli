@@ -196,7 +196,11 @@ crmservice delete accounts <id>
 ```bash
 crmservice fields accounts
 crmservice fields accounts --force
+crmservice fields accounts -o json
+crmservice fields accounts --full -o json  # raw backend schema
 ```
+
+`fields -o json` produces a clean array. Primary-key fields are marked `"primary": true`. `--full` returns the complete raw schema from the server.
 
 ### Search
 
