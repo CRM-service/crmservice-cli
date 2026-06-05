@@ -65,6 +65,7 @@ func init() {
 	rootCmd.AddCommand(updateCmd())
 	rootCmd.AddCommand(deleteCmd())
 	rootCmd.AddCommand(fieldsCmd())
+	rootCmd.AddCommand(filterCmd())
 	rootCmd.AddCommand(searchCmd())
 	rootCmd.AddCommand(modulesCmd())
 	rootCmd.AddCommand(whoamiCmd())

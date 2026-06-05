@@ -19,6 +19,7 @@ CRM-service CLI is a command-line tool for interacting with the CRM-service REST
 | `create` | Create a new record in a module |
 | `delete` | Delete a record by ID |
 | `fields` | Show available fields for a module |
+| `filter` | Show and validate filter language expressions |
 | `get` | Get a single record by ID |
 | `list` | List records with pagination |
 | `modules` | List available API modules |
@@ -104,6 +105,12 @@ crmservice fields accounts --force
 crmservice fields accounts --output json
 ```
 
+### Filter Language Tooling
+```bash
+crmservice filter reference
+crmservice filter validate '{"$and":[{"$eq":["account_type","Customer"]},{"$cts":["name","Acme"]}]}'
+```
+
 ### Show Current User
 ```bash
 crmservice whoami
@@ -121,6 +128,76 @@ crmservice completion zsh > ~/.zcompletions/_crmservice
 # Fish
 crmservice completion fish > ~/.config/fish/completions/crmservice.fish
 ```
+
+## Filter Language
+
+Filters are JSON expressions used by `crmservice list <module> --filter '<json>'` and `crmservice search <module> '<json>'`. Always quote the JSON in the shell with single quotes.
+
+Use field **names** from `crmservice fields <module>` (not labels). Related fields can be addressed as `relation.field` when the backend exposes and permits that relation.
+
+### Preferred Expression Shape
+
+Each operator is a JSON object whose key is the operator and whose value is an array of arguments:
+
+```json
+{"$eq":["account_type","Customer"]}
+```
+
+Combine expressions with logical operators:
+
+```json
+{"$and":[{"$eq":["account_type","Customer"]},{"$cts":["name","Acme"]}]}
+```
+
+### Operators
+
+| Operator | Arguments | Meaning |
+|----------|-----------|---------|
+| `$eq` | `[field, value]` | equals |
+| `$ne` | `[field, value]` | not equals |
+| `$gt`, `$gte` | `[field, value]` | greater than / greater than or equal |
+| `$lt`, `$lte` | `[field, value]` | less than / less than or equal |
+| `$in`, `$nin` | `[field, [values...]]` | in / not in a set |
+| `$between`, `$not.between` | `[field, from, to]` | between / outside range |
+| `$is.null`, `$not.null` | `[field]` | is NULL / is not NULL |
+| `$beg`, `$end` | `[field, value]` | begins with / ends with |
+| `$cts`, `$not.cts` | `[field, value]` | contains / does not contain |
+| `$like` | `[field, pattern]` | SQL LIKE pattern, use `%` wildcards |
+| `$regex` | `[field, pattern]` | SQL REGEXP pattern |
+| `$and`, `$or`, `$nor` | `[expressions...]` | logical groups |
+| `$not` | `expression` | negates one expression |
+
+### Common Filter Examples
+
+```bash
+# Exact match
+crmservice search accounts '{"$eq":["account_type","Customer"]}'
+
+# Contains text
+crmservice search accounts '{"$cts":["name","Acme"]}'
+
+# Combine conditions
+crmservice list accounts --filter '{"$and":[{"$eq":["account_type","Customer"]},{"$cts":["name","Acme"]}]}'
+
+# Match any of a set
+crmservice list accounts --filter '{"$in":["id",["123","456"]]}'
+
+# Date range
+crmservice list activities --filter '{"$between":["start_date","2026-01-01","2026-01-31"]}'
+
+# Relative date/time with $now expressions
+crmservice list activities --filter '{"$gte":["start_date","$now.date -7 days"]}'
+
+# Null / non-null
+crmservice list contacts --filter '{"$not.null":["email"]}'
+
+# Related field, if the relation exists and is readable
+crmservice list contacts --filter '{"$eq":["account.account_type","Customer"]}'
+```
+
+### Filter Tooling
+
+Use `crmservice filter reference` for an offline reference and `crmservice filter validate '<json>'` to catch JSON syntax errors and common operator shape mistakes before calling the API. Validation is intentionally lightweight; field existence and permissions are still checked by the backend.
 
 ## Configuration
 
@@ -144,7 +221,7 @@ Set environment variables or use a config file:
 - Field values for create/update use `--field "name=value"` syntax
 - Create/update can alternatively read a complete JSON:API request body from stdin; do not combine stdin body input with `--field`
 - Output formats support table (default), json, yaml, and csv
-- Filters must be valid JSON, for example: `'{"$eq":["account_type","Customer"]}'`
+- Filters must be valid JSON filter expressions; use `crmservice filter reference` and `crmservice filter validate '<json>'` for help
 - Pagination uses --page and --page-size or --offset
 - List/search sorting uses JSON:API `--sort` syntax: comma-separated fields, with `-` prefix for descending (for example `--sort "last_name,first_name"` or `--sort "-created_at"`)
 - Authentication must always be available by either: default config file, environment variable or command-line argument

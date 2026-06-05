@@ -166,6 +166,48 @@ crmservice search contacts '{"$or":[{"$eq":["id","123"]},{"$eq":["id","456"]}]}'
 crmservice search contacts '{"$eq":["mailing_city","Helsinki"]}' --sort last_name,first_name
 ```
 
+### Filter Language
+
+Filters are JSON expressions used by `list --filter` and `search`. Quote them with single quotes in the shell.
+
+Preferred syntax is an operator object:
+
+```bash
+# Exact match
+crmservice search accounts '{"$eq":["account_type","Customer"]}'
+
+# Contains text
+crmservice search accounts '{"$cts":["name","Acme"]}'
+
+# Combine conditions
+crmservice list accounts --filter '{"$and":[{"$eq":["account_type","Customer"]},{"$cts":["name","Acme"]}]}'
+
+# Match any of a set
+crmservice list accounts --filter '{"$in":["id",["123","456"]]}'
+
+# Date range and relative dates
+crmservice list activities --filter '{"$between":["start_date","2026-01-01","2026-01-31"]}'
+crmservice list activities --filter '{"$gte":["start_date","$now.date -7 days"]}'
+
+# Non-empty email
+crmservice list contacts --filter '{"$not.null":["email"]}'
+```
+
+Common operators:
+
+- Comparison: `$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`, `$in`, `$nin`, `$between`, `$not.between`, `$is.null`, `$not.null`
+- Strings: `$beg`, `$end`, `$cts`, `$not.cts`, `$like`, `$regex`
+- Logic: `$and`, `$or`, `$nor`, `$not`
+
+Use API field names from `crmservice fields <module>`. Related fields can be addressed as `relation.field` when supported by the backend.
+
+Filter tooling:
+
+```bash
+crmservice filter reference
+crmservice filter validate '{"$and":[{"$eq":["account_type","Customer"]},{"$cts":["name","Acme"]}]}'
+```
+
 ### Discover Modules
 
 ```bash
