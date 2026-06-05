@@ -27,13 +27,16 @@ func ListResponse(resp *api.Response, opts Options) error {
 	if opts.Format == "csv" {
 		return outputCSV(resp, opts)
 	}
+	if opts.Format == "jsonl" {
+		return outputJSONL(resp, opts)
+	}
 	if opts.Format == "json" {
 		return outputJSON(resp, opts)
 	}
 	if opts.Format == "table" {
 		return outputTable(resp, opts)
 	}
-	return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", opts.Format)
+	return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", opts.Format)
 }
 
 func ItemResponse(resp *api.SingleResponse, opts Options) error {
@@ -43,18 +46,21 @@ func ItemResponse(resp *api.SingleResponse, opts Options) error {
 	if opts.Format == "csv" {
 		return outputCSV(resp, opts)
 	}
+	if opts.Format == "jsonl" {
+		return outputJSONL(resp, opts)
+	}
 	if opts.Format == "json" {
 		return outputJSON(resp, opts)
 	}
 	if opts.Format == "table" {
 		return outputTableItem(resp, opts)
 	}
-	return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", opts.Format)
+	return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", opts.Format)
 }
 
 func ValidOutputFormat(format string) bool {
 	switch format {
-	case "table", "json", "yaml", "csv":
+	case "table", "json", "yaml", "jsonl", "csv":
 		return true
 	default:
 		return false
@@ -64,53 +70,109 @@ func ValidOutputFormat(format string) bool {
 func outputJSON(v interface{}, opts Options) error {
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
-	return encoder.Encode(v)
+	return encoder.Encode(cleanStructuredOutput(v, opts))
+}
+
+func outputJSONL(v interface{}, opts Options) error {
+	data := cleanJSONLRecords(v, opts)
+	if data == nil {
+		fmt.Println("No data found")
+		return nil
+	}
+
+	encoder := json.NewEncoder(os.Stdout)
+	dataVal := reflect.ValueOf(data)
+	if dataVal.Kind() == reflect.Slice {
+		for i := 0; i < dataVal.Len(); i++ {
+			if err := encoder.Encode(dataVal.Index(i).Interface()); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	return encoder.Encode(data)
+}
+
+func cleanJSONLRecords(v interface{}, opts Options) interface{} {
+	if resp, ok := v.(*api.Response); ok {
+		if opts.Full {
+			return resp.Data
+		}
+		return flattenResourceList(resp.Data)
+	}
+	if single, ok := v.(*api.SingleResponse); ok {
+		if opts.Full {
+			return single.Data
+		}
+		return flattenResource(single.Data)
+	}
+	return v
 }
 
 func outputYAML(v interface{}, opts Options) error {
-	data := v
+	data := cleanStructuredOutput(v, opts)
 
-	if resp, ok := data.(*api.Response); ok {
-		if resp.Data == nil {
-			fmt.Println("No data found")
-			return nil
-		}
-
-		if !opts.Full {
-			if dataSlice, ok := resp.Data.([]interface{}); ok {
-				extracted := make([]interface{}, len(dataSlice))
-				for i, item := range dataSlice {
-					if attr := extractAttributes(item); attr != nil {
-						extracted[i] = attr
-					} else {
-						extracted[i] = item
-					}
-				}
-				data = extracted
-			}
-		} else {
-			data = resp
-		}
-	} else if single, ok := data.(*api.SingleResponse); ok {
-		if single.Data == nil {
-			fmt.Println("No data found")
-			return nil
-		}
-
-		if !opts.Full {
-			if attr := extractAttributes(single.Data); attr != nil {
-				data = attr
-			} else {
-				data = single.Data
-			}
-		} else {
-			data = single
-		}
+	if data == nil {
+		fmt.Println("No data found")
+		return nil
 	}
 
 	encoder := yaml.NewEncoder(os.Stdout)
 	encoder.SetIndent(2)
 	return encoder.Encode(data)
+}
+
+func cleanStructuredOutput(v interface{}, opts Options) interface{} {
+	if opts.Full {
+		return v
+	}
+
+	if resp, ok := v.(*api.Response); ok {
+		return flattenResourceList(resp.Data)
+	}
+	if single, ok := v.(*api.SingleResponse); ok {
+		return flattenResource(single.Data)
+	}
+
+	return v
+}
+
+func flattenResourceList(data interface{}) interface{} {
+	if data == nil {
+		return nil
+	}
+
+	dataVal := reflect.ValueOf(data)
+	if dataVal.Kind() != reflect.Slice {
+		return flattenResource(data)
+	}
+
+	items := make([]interface{}, 0, dataVal.Len())
+	for i := 0; i < dataVal.Len(); i++ {
+		items = append(items, flattenResource(dataVal.Index(i).Interface()))
+	}
+	return items
+}
+
+func flattenResource(item interface{}) interface{} {
+	itemMap, ok := item.(map[string]interface{})
+	if !ok {
+		return item
+	}
+
+	attrs, ok := itemMap["attributes"].(map[string]interface{})
+	if !ok {
+		return item
+	}
+
+	record := make(map[string]interface{}, len(attrs)+1)
+	for key, value := range attrs {
+		record[key] = value
+	}
+	if id, ok := itemMap["id"]; ok {
+		record["id"] = id
+	}
+	return record
 }
 
 func outputCSV(v interface{}, opts Options) error {

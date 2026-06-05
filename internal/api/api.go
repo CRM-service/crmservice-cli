@@ -90,6 +90,7 @@ type ListOptions struct {
 	Fields   []string
 	Filter   map[string]interface{}
 	Include  []string
+	Sort     []string
 }
 
 func NewListOptions() *ListOptions {
@@ -133,6 +134,11 @@ func (o *ListOptions) AddInclude(relation string) *ListOptions {
 	return o
 }
 
+func (o *ListOptions) SetSort(fields []string) *ListOptions {
+	o.Sort = fields
+	return o
+}
+
 type Meta struct {
 	Total    int `json:"total,omitempty"`
 	Page     int `json:"page,omitempty"`
@@ -148,15 +154,17 @@ type Links struct {
 }
 
 type Response struct {
-	Data  interface{} `json:"data"`
-	Meta  *Meta       `json:"meta,omitempty"`
-	Links *Links      `json:"links,omitempty"`
+	Data     interface{} `json:"data"`
+	Meta     *Meta       `json:"meta,omitempty"`
+	Links    *Links      `json:"links,omitempty"`
+	Included interface{} `json:"included,omitempty"`
 }
 
 type SingleResponse struct {
-	Data  interface{} `json:"data"`
-	Meta  *Meta       `json:"meta,omitempty"`
-	Links *Links      `json:"links,omitempty"`
+	Data     interface{} `json:"data"`
+	Meta     *Meta       `json:"meta,omitempty"`
+	Links    *Links      `json:"links,omitempty"`
+	Included interface{} `json:"included,omitempty"`
 }
 
 func (c *Client) Do(ctx context.Context, method, path string, body interface{}, result interface{}) error {
@@ -237,6 +245,9 @@ func (c *Client) List(ctx context.Context, module string, opts *ListOptions) (*R
 		}
 		if len(opts.Include) > 0 {
 			query.Set("include", strings.Join(opts.Include, ","))
+		}
+		if len(opts.Sort) > 0 {
+			query.Set("sort", strings.Join(opts.Sort, ","))
 		}
 	}
 

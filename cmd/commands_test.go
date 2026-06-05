@@ -22,7 +22,7 @@ import (
 func TestValidOutputFormat(t *testing.T) {
 	t.Run("valid formats", func(t *testing.T) {
 		t.Parallel()
-		formats := []string{"table", "json", "yaml", "csv"}
+		formats := []string{"table", "json", "yaml", "jsonl", "csv"}
 		for _, format := range formats {
 			if !ValidOutputFormat(format) {
 				t.Errorf("ValidOutputFormat(%q) = false, expected true", format)
@@ -74,7 +74,7 @@ func TestListCmd(t *testing.T) {
 	})
 
 	t.Run("flags", func(t *testing.T) {
-		flags := []string{"page-size", "fields", "output", "filter", "full", "verbose", "page", "offset"}
+		flags := []string{"page-size", "fields", "sort", "output", "filter", "full", "verbose", "page", "offset"}
 		for _, name := range flags {
 			flag := cmd.Flags().Lookup(name)
 			if flag == nil {
@@ -94,6 +94,7 @@ func TestListCmd(t *testing.T) {
 			{"valid table format", "table", true, "", false},
 			{"valid json format", "json", true, "", false},
 			{"valid yaml format", "yaml", true, "", false},
+			{"valid jsonl format", "jsonl", true, "", false},
 			{"valid csv format", "csv", true, "", false},
 			{"invalid format", "xml", false, "", true},
 			{"invalid with filter", "invalid", false, `{"name":"test"}`, true},
@@ -468,7 +469,7 @@ func TestFieldsCmd(t *testing.T) {
 	})
 
 	t.Run("flags", func(t *testing.T) {
-		flags := []string{"fields", "output", "force", "verbose"}
+		flags := []string{"fields", "output", "full", "force", "verbose"}
 		for _, name := range flags {
 			flag := cmd.Flags().Lookup(name)
 			if flag == nil {
@@ -503,7 +504,7 @@ func TestSearchCmd(t *testing.T) {
 	})
 
 	t.Run("flags", func(t *testing.T) {
-		flags := []string{"page-size", "include", "fields", "output", "full", "verbose", "page", "offset"}
+		flags := []string{"page-size", "include", "fields", "sort", "output", "full", "verbose", "page", "offset"}
 		for _, name := range flags {
 			flag := cmd.Flags().Lookup(name)
 			if flag == nil {

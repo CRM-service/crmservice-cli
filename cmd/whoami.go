@@ -28,7 +28,7 @@ func whoamiCmd() *cobra.Command {
 				return err
 			}
 			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", outputFormat)
+				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
 			}
 
 			url, err := getOptionalURLFromFlagEnvConfig(cmd)
@@ -59,7 +59,7 @@ func whoamiCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, or csv")
+	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
 	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
 
 	return cmd
@@ -147,6 +147,8 @@ func outputWhoami(format string, data map[string]interface{}) error {
 		encoder := json.NewEncoder(os.Stdout)
 		encoder.SetIndent("", "  ")
 		return encoder.Encode(data)
+	case "jsonl":
+		return json.NewEncoder(os.Stdout).Encode(data)
 	case "yaml":
 		encoder := yaml.NewEncoder(os.Stdout)
 		encoder.SetIndent(2)
@@ -167,7 +169,7 @@ func outputWhoami(format string, data map[string]interface{}) error {
 		}
 		return nil
 	default:
-		return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", format)
+		return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", format)
 	}
 }
 

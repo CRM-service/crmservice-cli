@@ -21,7 +21,7 @@ import (
 
 func ValidOutputFormat(format string) bool {
 	switch format {
-	case "table", "json", "yaml", "csv":
+	case "table", "json", "yaml", "jsonl", "csv":
 		return true
 	default:
 		return false
@@ -126,6 +126,18 @@ func getTimeoutFromConfig() time.Duration {
 		return time.Duration(cfg.API.Timeout) * time.Second
 	}
 	return 30 * time.Second
+}
+
+func splitCommaSeparated(value string) []string {
+	parts := strings.Split(value, ",")
+	items := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			items = append(items, part)
+		}
+	}
+	return items
 }
 
 type bodyInput struct {
@@ -308,7 +320,8 @@ func listCmd() *cobra.Command {
 	cmd.Flags().Int("page-size", 20, "Items per page")
 	cmd.Flags().String("include", "", "Comma-separated relation names to include")
 	cmd.Flags().String("fields", "", "Comma-separated field names to include")
-	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, or csv")
+	cmd.Flags().String("sort", "", "Comma-separated field names to sort by (prefix with - for descending)")
+	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
 	cmd.Flags().String("filter", "", "Filter in JSON format")
 	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
 	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
@@ -330,7 +343,7 @@ func runListCommand(cmd *cobra.Command, args []string, filterOverride string) er
 	}
 
 	if !ValidOutputFormat(outputFormat) {
-		return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", outputFormat)
+		return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
 	}
 	full, err := cmd.Flags().GetBool("full")
 	if err != nil {
@@ -353,12 +366,16 @@ func runListCommand(cmd *cobra.Command, args []string, filterOverride string) er
 	if err != nil {
 		return err
 	}
-	filter, err := cmd.Flags().GetString("filter")
+	sort, err := cmd.Flags().GetString("sort")
 	if err != nil {
 		return err
 	}
-	if filterOverride != "" {
-		filter = filterOverride
+	filter := filterOverride
+	if filter == "" {
+		filter, err = cmd.Flags().GetString("filter")
+		if err != nil {
+			return err
+		}
 	}
 	include, err := cmd.Flags().GetString("include")
 	if err != nil {
@@ -388,7 +405,11 @@ func runListCommand(cmd *cobra.Command, args []string, filterOverride string) er
 	}
 
 	if fields != "" {
-		opts.SetFields(strings.Split(fields, ","))
+		opts.SetFields(splitCommaSeparated(fields))
+	}
+
+	if sort != "" {
+		opts.SetSort(splitCommaSeparated(sort))
 	}
 
 	if filter != "" {
@@ -411,7 +432,7 @@ func runListCommand(cmd *cobra.Command, args []string, filterOverride string) er
 
 	var outputFields []string
 	if fields != "" {
-		outputFields = strings.Split(fields, ",")
+		outputFields = splitCommaSeparated(fields)
 	}
 
 	return output.ListResponse(resp, output.Options{
@@ -439,7 +460,7 @@ func getCmd() *cobra.Command {
 			}
 
 			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", outputFormat)
+				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
 			}
 			full, err := cmd.Flags().GetBool("full")
 			if err != nil {
@@ -447,7 +468,7 @@ func getCmd() *cobra.Command {
 			}
 
 			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", outputFormat)
+				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
 			}
 			verbose, err := cmd.Flags().GetInt("verbose")
 			if err != nil {
@@ -463,7 +484,7 @@ func getCmd() *cobra.Command {
 			opts := &api.ListOptions{}
 
 			if fields, err := cmd.Flags().GetString("fields"); err == nil && fields != "" {
-				opts.SetFields(strings.Split(fields, ","))
+				opts.SetFields(splitCommaSeparated(fields))
 			}
 
 			resp, err := apiClient.Get(cmd.Context(), module, id, opts)
@@ -473,7 +494,7 @@ func getCmd() *cobra.Command {
 
 			var outputFields []string
 			if fields, err := cmd.Flags().GetString("fields"); err == nil && fields != "" {
-				outputFields = strings.Split(fields, ",")
+				outputFields = splitCommaSeparated(fields)
 			}
 
 			return output.ItemResponse(resp, output.Options{
@@ -485,7 +506,7 @@ func getCmd() *cobra.Command {
 	}
 
 	cmd.Flags().String("fields", "", "Comma-separated field names to include (from 'attributes' branch)")
-	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, or csv")
+	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
 	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
 	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
 
@@ -509,7 +530,7 @@ func createCmd() *cobra.Command {
 			}
 
 			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", outputFormat)
+				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
 			}
 			full, err := cmd.Flags().GetBool("full")
 			if err != nil {
@@ -517,7 +538,7 @@ func createCmd() *cobra.Command {
 			}
 
 			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", outputFormat)
+				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
 			}
 			verbose, err := cmd.Flags().GetInt("verbose")
 			if err != nil {
@@ -554,7 +575,7 @@ func createCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringArray("field", []string{}, "Field values to set")
-	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, or csv")
+	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
 	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
 	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
 
@@ -579,7 +600,7 @@ func updateCmd() *cobra.Command {
 			}
 
 			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", outputFormat)
+				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
 			}
 			full, err := cmd.Flags().GetBool("full")
 			if err != nil {
@@ -587,7 +608,7 @@ func updateCmd() *cobra.Command {
 			}
 
 			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", outputFormat)
+				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
 			}
 			verbose, err := cmd.Flags().GetInt("verbose")
 			if err != nil {
@@ -624,7 +645,7 @@ func updateCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringArray("field", []string{}, "Field values to update")
-	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, or csv")
+	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
 	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
 	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
 
@@ -686,13 +707,17 @@ func fieldsCmd() *cobra.Command {
 			}
 
 			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, csv", outputFormat)
+				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
 			}
 			verbose, err := cmd.Flags().GetInt("verbose")
 			if err != nil {
 				return err
 			}
 			force, err := cmd.Flags().GetBool("force")
+			if err != nil {
+				return err
+			}
+			full, err := cmd.Flags().GetBool("full")
 			if err != nil {
 				return err
 			}
@@ -800,24 +825,54 @@ func fieldsCmd() *cobra.Command {
 				fieldList = append(fieldList, field)
 			}
 
-			if len(primaryKey) > 0 {
+			// Annotate each field record with "primary": true for primary key fields.
+			// This moves the primary key information into the structured output
+			// so that machine consumers (jq etc.) can use it directly without
+			// special parsing or prefix stripping.
+			pkSet := make(map[string]bool, len(primaryKey))
+			for _, pk := range primaryKey {
+				pkSet[pk] = true
+			}
+			for _, f := range fieldList {
+				if name, ok := f["name"].(string); ok && pkSet[name] {
+					f["primary"] = true
+				}
+			}
+
+			// Only print the human-readable "Primary Key: ..." line for table output.
+			// For json/jsonl/yaml/csv (used heavily by agents and scripts) we keep
+			// the output clean and include the info via the "primary" annotations above.
+			if outputFormat == "table" && len(primaryKey) > 0 {
 				fmt.Printf("Primary Key: %v\n", primaryKey)
 			}
 
+			// Choose what to emit as the list data.
+			data := interface{}(fieldList)
+			if full {
+				// When --full is requested, return the original complete schema
+				// document from the backend (contains "primary-key", all attribute
+				// details the server knows about, etc.). This only affects
+				// structured output formats; table still gets a nice view.
+				if outputFormat != "table" {
+					data = rawResp
+				}
+			}
+
 			return output.ListResponse(&api.Response{
-				Data:  fieldList,
+				Data:  data,
 				Meta:  nil,
 				Links: nil,
 			}, output.Options{
 				Format:  outputFormat,
 				Columns: []string{"name", "type", "size", "scale", "nullable", "defaultValue", "label"},
-				Full:    false,
+				Full:    full,
 			})
 		},
 	}
 
 	cmd.Flags().String("fields", "", "Comma-separated field names to include")
-	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, or csv")
+	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
+	cmd.Flags().Bool("full", false, "Include full raw schema response from the backend")
 	cmd.Flags().Bool("force", false, "Force refresh schema cache")
 	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
 
@@ -838,7 +893,8 @@ func searchCmd() *cobra.Command {
 	cmd.Flags().Int("page-size", 20, "Items per page")
 	cmd.Flags().String("include", "", "Comma-separated relation names to include")
 	cmd.Flags().String("fields", "", "Comma-separated field names to include")
-	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, or csv")
+	cmd.Flags().String("sort", "", "Comma-separated field names to sort by (prefix with - for descending)")
+	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
 	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
 	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
 	cmd.Flags().Int("page", 1, "Page number")

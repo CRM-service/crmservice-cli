@@ -153,6 +153,20 @@ func TestListOptions_Setters(t *testing.T) {
 			t.Errorf("Include[1] = %q, expected %q", opts.Include[1], "contacts")
 		}
 	})
+
+	t.Run("SetSort", func(t *testing.T) {
+		sort := []string{"name", "-created_at"}
+		result := opts.SetSort(sort)
+		if result != opts {
+			t.Error("SetSort should return the same options instance")
+		}
+		if len(opts.Sort) != 2 {
+			t.Errorf("Sort length = %d, expected 2", len(opts.Sort))
+		}
+		if opts.Sort[1] != "-created_at" {
+			t.Errorf("Sort[1] = %q, expected %q", opts.Sort[1], "-created_at")
+		}
+	})
 }
 
 func TestClient_List(t *testing.T) {
@@ -854,9 +868,11 @@ func TestListOptions_Constructors(t *testing.T) {
 
 func TestClient_ListWithOptions(t *testing.T) {
 	var receivedQuery string
+	var receivedSort string
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedQuery = r.URL.RawQuery
+		receivedSort = r.URL.Query().Get("sort")
 		w.Header().Set("Content-Type", "application/vnd.api+json")
 		w.WriteHeader(http.StatusOK)
 		if err := json.NewEncoder(w).Encode(map[string]interface{}{
@@ -877,6 +893,7 @@ func TestClient_ListWithOptions(t *testing.T) {
 	opts.SetFields([]string{"name", "email"})
 	opts.SetFilterObj(map[string]interface{}{"status": "active"})
 	opts.AddInclude("owner")
+	opts.SetSort([]string{"name", "-created_at"})
 
 	_, err := client.List(context.Background(), "accounts", opts)
 	if err != nil {
@@ -891,5 +908,27 @@ func TestClient_ListWithOptions(t *testing.T) {
 	}
 	if !strings.Contains(receivedQuery, "offset=20") {
 		t.Errorf("Query should contain offset=20, got: %s", receivedQuery)
+	}
+	if receivedSort != "name,-created_at" {
+		t.Errorf("Query sort = %q, expected %q", receivedSort, "name,-created_at")
+	}
+}
+
+func TestResponseUnmarshalsIncluded(t *testing.T) {
+	body := []byte(`{
+		"data": [],
+		"included": [{"id":"u1","type":"users","attributes":{"name":"Owner"}}]
+	}`)
+
+	var resp Response
+	if err := json.Unmarshal(body, &resp); err != nil {
+		t.Fatalf("json.Unmarshal() returned error: %v", err)
+	}
+	included, ok := resp.Included.([]interface{})
+	if !ok {
+		t.Fatalf("Included = %T, expected []interface{}", resp.Included)
+	}
+	if len(included) != 1 {
+		t.Fatalf("len(Included) = %d, expected 1", len(included))
 	}
 }
