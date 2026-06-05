@@ -46,6 +46,31 @@ Most data commands support:
 - `-o, --output string`: Output format (table, json, yaml, jsonl, csv)
 - `--full`: Include full response (not just attributes)
 
+## Structured Output Shape
+
+By default, `list` and `search` with `-o json` return a **flat JSON array** of records. Each record has `id` at the top level and attributes flattened into the same object:
+
+```json
+[
+  {"id":"123","name":"Acme Corp","account_type":"Customer"}
+]
+```
+
+Use array jq expressions for default JSON output:
+
+```bash
+crmservice list accounts -o json | jq 'length'
+crmservice search accounts '{"$eq":["account_type","Customer"]}' -o json | jq -c '.[]'
+```
+
+Do **not** use `.data` with default `-o json` list/search output. Use `--full` only when you need the complete JSON:API envelope (`data`, `links`, `meta`, relationships, or included resources):
+
+```bash
+crmservice list accounts --full -o json | jq '.data | length'
+```
+
+`-o jsonl` writes one flattened record per line and is preferred for streaming pipelines.
+
 ## Usage Examples
 
 ### List Modules
@@ -106,6 +131,18 @@ printf '{"data":{"type":"accounts","id":"123","attributes":{"account_type":"Part
 crmservice list accounts -o jsonl \
   | jq 'select(.account_type == "Prospect") | .account_type = "Customer"' \
   | crmservice bulk-update accounts --concurrency 4 --continue-on-error
+```
+
+For filtered batch updates, validate the filter, build a minimal `{id, changed_field}` stream, and use `--summary` for production updates:
+
+```bash
+filter='{"$eq":["account_type","Prospect"]}'
+
+crmservice filter validate "$filter"
+
+crmservice search accounts "$filter" --fields "id,account_type" -o json \
+  | jq -c '.[] | {id, account_type:"Customer"}' \
+  | crmservice bulk-update accounts --summary --concurrency 4
 ```
 
 Bulk flags: `--continue-on-error`, `--dry-run`, `--concurrency N`, `--skip-empty`, and `--summary`.
@@ -429,7 +466,7 @@ Set environment variables or use a config file:
 - Create/update can alternatively read a complete JSON:API request body from stdin; do not combine stdin body input with `--field`
 - Bulk-create/bulk-update read flat JSONL records or a JSON array from stdin; bulk-create ignores input `id`, bulk-update requires input `id`
 - Output formats support table (default), json, yaml, jsonl, and csv
-- For `--output json` and `--output yaml`, list/search output is a flat array of records by default: top-level `id` plus resource `attributes`; use `--full` for the complete JSON:API response envelope
+- For `--output json` and `--output yaml`, list/search output is a flat array of records by default: top-level `id` plus flattened resource attributes; use `--full` for the complete JSON:API response envelope
 - `--output jsonl` writes one JSON record per line
 - Filters must be valid JSON filter expressions; use `crmservice filter reference` and `crmservice filter validate '<json>'` for help
 - Pagination uses --page and --page-size or --offset
