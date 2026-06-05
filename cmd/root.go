@@ -61,6 +61,8 @@ func init() {
 	rootCmd.PersistentFlags().String("token", "", "Bearer token (overrides config)")
 	rootCmd.AddCommand(listCmd())
 	rootCmd.AddCommand(getCmd())
+	rootCmd.AddCommand(bulkCreateCmd())
+	rootCmd.AddCommand(bulkUpdateCmd())
 	rootCmd.AddCommand(createCmd())
 	rootCmd.AddCommand(updateCmd())
 	rootCmd.AddCommand(deleteCmd())

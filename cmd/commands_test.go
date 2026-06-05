@@ -22,7 +22,7 @@ import (
 func TestValidOutputFormat(t *testing.T) {
 	t.Run("valid formats", func(t *testing.T) {
 		t.Parallel()
-		formats := []string{"table", "json", "yaml", "csv"}
+		formats := []string{"table", "json", "yaml", "jsonl", "csv"}
 		for _, format := range formats {
 			if !ValidOutputFormat(format) {
 				t.Errorf("ValidOutputFormat(%q) = false, expected true", format)
@@ -94,6 +94,7 @@ func TestListCmd(t *testing.T) {
 			{"valid table format", "table", true, "", false},
 			{"valid json format", "json", true, "", false},
 			{"valid yaml format", "yaml", true, "", false},
+			{"valid jsonl format", "jsonl", true, "", false},
 			{"valid csv format", "csv", true, "", false},
 			{"invalid format", "xml", false, "", true},
 			{"invalid with filter", "invalid", false, `{"name":"test"}`, true},

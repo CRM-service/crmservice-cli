@@ -2,6 +2,7 @@ package output
 
 import (
 	"encoding/csv"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -283,6 +284,7 @@ func TestValidOutputFormat(t *testing.T) {
 		{"table", true},
 		{"json", true},
 		{"yaml", true},
+		{"jsonl", true},
 		{"csv", true},
 		{"invalid", false},
 		{"", false},
@@ -655,5 +657,169 @@ func TestMixedTypes(t *testing.T) {
 	err := ListResponse(resp, opts)
 	if err != nil {
 		t.Errorf("ListResponse failed: %v", err)
+	}
+}
+
+func TestOutputJSONNonFullFlattensResourceList(t *testing.T) {
+	resp := &api.Response{
+		Data: []interface{}{
+			map[string]interface{}{
+				"id":   "297603",
+				"type": "accounts",
+				"attributes": map[string]interface{}{
+					"entity_no":  "ACC-1",
+					"name":       "Acme Corp",
+					"created_at": "2026-01-01 12:00:00",
+				},
+			},
+		},
+		Meta: &api.Meta{Total: 1},
+	}
+
+	out := captureStdout(t, func() {
+		if err := outputJSON(resp, Options{Format: "json"}); err != nil {
+			t.Fatalf("outputJSON() returned error: %v", err)
+		}
+	})
+
+	var records []map[string]interface{}
+	if err := json.Unmarshal([]byte(out), &records); err != nil {
+		t.Fatalf("json.Unmarshal() returned error: %v\noutput: %s", err, out)
+	}
+	if len(records) != 1 {
+		t.Fatalf("len(records) = %d, expected 1", len(records))
+	}
+	if records[0]["id"] != "297603" {
+		t.Errorf("id = %v, expected 297603", records[0]["id"])
+	}
+	if records[0]["name"] != "Acme Corp" {
+		t.Errorf("name = %v, expected Acme Corp", records[0]["name"])
+	}
+	if _, ok := records[0]["attributes"]; ok {
+		t.Error("flattened record should not contain attributes")
+	}
+	if _, ok := records[0]["type"]; ok {
+		t.Error("flattened record should not contain type")
+	}
+}
+
+func TestOutputJSONFullPreservesEnvelope(t *testing.T) {
+	resp := &api.Response{
+		Data: []interface{}{
+			map[string]interface{}{
+				"id":         "297603",
+				"type":       "accounts",
+				"attributes": map[string]interface{}{"name": "Acme Corp"},
+			},
+		},
+		Meta: &api.Meta{Total: 1},
+	}
+
+	out := captureStdout(t, func() {
+		if err := outputJSON(resp, Options{Format: "json", Full: true}); err != nil {
+			t.Fatalf("outputJSON() returned error: %v", err)
+		}
+	})
+
+	var envelope map[string]interface{}
+	if err := json.Unmarshal([]byte(out), &envelope); err != nil {
+		t.Fatalf("json.Unmarshal() returned error: %v", err)
+	}
+	if _, ok := envelope["data"]; !ok {
+		t.Error("full JSON output should contain data envelope")
+	}
+	if _, ok := envelope["meta"]; !ok {
+		t.Error("full JSON output should contain meta")
+	}
+}
+
+func TestOutputYAMLNonFullFlattensResourceList(t *testing.T) {
+	resp := &api.Response{
+		Data: []interface{}{
+			map[string]interface{}{
+				"id":         "297603",
+				"type":       "accounts",
+				"attributes": map[string]interface{}{"name": "Acme Corp"},
+			},
+		},
+	}
+
+	out := captureStdout(t, func() {
+		if err := outputYAML(resp, Options{Format: "yaml"}); err != nil {
+			t.Fatalf("outputYAML() returned error: %v", err)
+		}
+	})
+
+	if !strings.Contains(out, "id: \"297603\"") && !strings.Contains(out, "id: 297603") {
+		t.Errorf("YAML output should contain flattened id, got: %s", out)
+	}
+	if !strings.Contains(out, "name: Acme Corp") {
+		t.Errorf("YAML output should contain flattened name, got: %s", out)
+	}
+	if strings.Contains(out, "attributes:") {
+		t.Errorf("YAML output should not contain attributes, got: %s", out)
+	}
+}
+
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe() returned error: %v", err)
+	}
+	os.Stdout = w
+
+	fn()
+
+	if err := w.Close(); err != nil {
+		t.Fatalf("writer.Close() returned error: %v", err)
+	}
+	os.Stdout = oldStdout
+	out, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("io.ReadAll() returned error: %v", err)
+	}
+	if err := r.Close(); err != nil {
+		t.Fatalf("reader.Close() returned error: %v", err)
+	}
+	return string(out)
+}
+
+func TestOutputJSONLNonFullWritesOneFlatRecordPerLine(t *testing.T) {
+	resp := &api.Response{
+		Data: []interface{}{
+			map[string]interface{}{
+				"id":         "297603",
+				"type":       "accounts",
+				"attributes": map[string]interface{}{"name": "Acme Corp"},
+			},
+			map[string]interface{}{
+				"id":         "297604",
+				"type":       "accounts",
+				"attributes": map[string]interface{}{"name": "Example Inc"},
+			},
+		},
+	}
+
+	out := captureStdout(t, func() {
+		if err := outputJSONL(resp, Options{Format: "jsonl"}); err != nil {
+			t.Fatalf("outputJSONL() returned error: %v", err)
+		}
+	})
+
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("JSONL line count = %d, expected 2; output: %s", len(lines), out)
+	}
+	for i, line := range lines {
+		var record map[string]interface{}
+		if err := json.Unmarshal([]byte(line), &record); err != nil {
+			t.Fatalf("line %d is not valid JSON: %v", i, err)
+		}
+		if _, ok := record["attributes"]; ok {
+			t.Errorf("line %d should contain a flat record, got: %s", i, line)
+		}
 	}
 }

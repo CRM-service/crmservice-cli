@@ -16,6 +16,8 @@ CRM-service CLI is a command-line tool for interacting with the CRM-service REST
 | Command | Description |
 |---------|-------------|
 | `completion` | Generate autocompletion for bash, fish, powershell, or zsh |
+| `bulk-create` | Create multiple records from JSONL or a JSON array |
+| `bulk-update` | Update multiple records from JSONL or a JSON array |
 | `create` | Create a new record in a module |
 | `delete` | Delete a record by ID |
 | `fields` | Show available fields for a module |
@@ -40,7 +42,7 @@ All commands support these global flags:
 
 Most data commands support:
 
-- `-o, --output string`: Output format (table, json, yaml, csv)
+- `-o, --output string`: Output format (table, json, yaml, jsonl, csv)
 - `--full`: Include full response (not just attributes)
 
 ## Usage Examples
@@ -77,6 +79,17 @@ printf '{"data":{"type":"accounts","attributes":{"name":"Acme Corp","account_typ
   | crmservice create accounts
 ```
 
+### Bulk Create Records
+```bash
+# Copy accounts between CRM instances. Source id is ignored on create.
+crmservice --url a.crmservice.fi list accounts -o jsonl \
+  | crmservice --url b.crmservice.fi bulk-create accounts
+
+# Preview request bodies without sending them
+crmservice list accounts -o jsonl \
+  | crmservice bulk-create accounts --dry-run -o jsonl
+```
+
 ### Update Record
 ```bash
 crmservice update accounts 123 --field "account_type=Partner" --field "notes=Updated"
@@ -85,6 +98,16 @@ crmservice update accounts 123 --field "account_type=Partner" --field "notes=Upd
 printf '{"data":{"type":"accounts","id":"123","attributes":{"account_type":"Partner","notes":"Updated"}}}' \
   | crmservice update accounts 123
 ```
+
+### Bulk Update Records
+```bash
+# Each input record must include id. id selects the record and is not sent as an attribute.
+crmservice list accounts -o jsonl \
+  | jq 'select(.account_type == "Prospect") | .account_type = "Customer"' \
+  | crmservice bulk-update accounts --concurrency 4 --continue-on-error
+```
+
+Bulk flags: `--continue-on-error`, `--dry-run`, `--concurrency N`, `--skip-empty`, and `--summary`.
 
 ### Delete Record
 ```bash
@@ -220,7 +243,10 @@ Set environment variables or use a config file:
 - Field schema may contain custom fields. Name prefixed with `cf_`
 - Field values for create/update use `--field "name=value"` syntax
 - Create/update can alternatively read a complete JSON:API request body from stdin; do not combine stdin body input with `--field`
-- Output formats support table (default), json, yaml, and csv
+- Bulk-create/bulk-update read flat JSONL records or a JSON array from stdin; bulk-create ignores input `id`, bulk-update requires input `id`
+- Output formats support table (default), json, yaml, jsonl, and csv
+- For `--output json` and `--output yaml`, list/search output is a flat array of records by default: top-level `id` plus resource `attributes`; use `--full` for the complete JSON:API response envelope
+- `--output jsonl` writes one JSON record per line
 - Filters must be valid JSON filter expressions; use `crmservice filter reference` and `crmservice filter validate '<json>'` for help
 - Pagination uses --page and --page-size or --offset
 - List/search sorting uses JSON:API `--sort` syntax: comma-separated fields, with `-` prefix for descending (for example `--sort "last_name,first_name"` or `--sort "-created_at"`)
