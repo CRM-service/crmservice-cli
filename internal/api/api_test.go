@@ -913,3 +913,22 @@ func TestClient_ListWithOptions(t *testing.T) {
 		t.Errorf("Query sort = %q, expected %q", receivedSort, "name,-created_at")
 	}
 }
+
+func TestResponseUnmarshalsIncluded(t *testing.T) {
+	body := []byte(`{
+		"data": [],
+		"included": [{"id":"u1","type":"users","attributes":{"name":"Owner"}}]
+	}`)
+
+	var resp Response
+	if err := json.Unmarshal(body, &resp); err != nil {
+		t.Fatalf("json.Unmarshal() returned error: %v", err)
+	}
+	included, ok := resp.Included.([]interface{})
+	if !ok {
+		t.Fatalf("Included = %T, expected []interface{}", resp.Included)
+	}
+	if len(included) != 1 {
+		t.Fatalf("len(Included) = %d, expected 1", len(included))
+	}
+}

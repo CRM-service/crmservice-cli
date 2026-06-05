@@ -154,15 +154,17 @@ type Links struct {
 }
 
 type Response struct {
-	Data  interface{} `json:"data"`
-	Meta  *Meta       `json:"meta,omitempty"`
-	Links *Links      `json:"links,omitempty"`
+	Data     interface{} `json:"data"`
+	Meta     *Meta       `json:"meta,omitempty"`
+	Links    *Links      `json:"links,omitempty"`
+	Included interface{} `json:"included,omitempty"`
 }
 
 type SingleResponse struct {
-	Data  interface{} `json:"data"`
-	Meta  *Meta       `json:"meta,omitempty"`
-	Links *Links      `json:"links,omitempty"`
+	Data     interface{} `json:"data"`
+	Meta     *Meta       `json:"meta,omitempty"`
+	Links    *Links      `json:"links,omitempty"`
+	Included interface{} `json:"included,omitempty"`
 }
 
 func (c *Client) Do(ctx context.Context, method, path string, body interface{}, result interface{}) error {
