@@ -71,7 +71,30 @@ Do **not** use `.data` with default `-o json` list/search output. Use `--full` o
 crmservice list accounts --full -o json | jq '.data | length'
 ```
 
-`-o jsonl` writes one flattened record per line and is preferred for streaming pipelines.
+`-o jsonl` writes one flattened record per line and is **preferred for streaming pipelines**, bulk exports, and agent workflows. Use `-o json` when you need a single JSON array (for example `jq 'length'` on one shot). Use the same output semantics with `--all`; prefer `jsonl` for bounded or unlimited multi-page exports.
+
+### Fetch all pages (`--all`)
+
+`list` and `search` support `--all` to fetch every page automatically. Rules:
+
+- `--max-results` is **required** with `--all` (`0` = unlimited)
+- `--max-results` without `--all` is an error
+- `--page` and `--offset` cannot be used with `--all`
+- Default `--page-size` with `--all` is 100 (unless you set `--page-size` explicitly)
+- `--full` is supported with `--all`
+- When the cap is hit, a truncation status is printed to **stderr** in the requested output format
+- Use `--verbose 1` to log page progress to stderr
+
+```bash
+# Preview without --all (single page)
+crmservice list accounts --page-size 20 -o json
+
+# Bounded export for pipelines
+crmservice list accounts --all --max-results 500 -o jsonl
+
+# Unlimited export (use with care)
+crmservice search accounts '{"$eq":["account_type","Customer"]}' --all --max-results 0 -o jsonl
+```
 
 ## Usage Examples
 
@@ -362,38 +385,25 @@ crmservice list accounts --include "<relationship>" --full -o json \
 
 Use `--full` when you need included resources, relationships, links, or metadata. Without `--full`, JSON/YAML list output is intentionally flattened to record attributes plus `id`.
 
-### Paginate Until Exhausted / Get Total First
+### Fetch All Records
 
-Get total and page metadata first:
-
-```bash
-crmservice list accounts --page 1 --page-size 1 --full -o json \
-  | jq '.meta'
-```
-
-Paginate until an empty page is returned:
+Prefer `--all` instead of manual page loops:
 
 ```bash
-page=1
-while :; do
-  batch=$(crmservice list accounts --page "$page" --page-size 100 -o json)
-  count=$(jq 'length' <<<"$batch")
-  [ "$count" -eq 0 ] && break
-  jq -c '.[]' <<<"$batch"
-  page=$((page + 1))
-done
+# Bounded export (recommended for agents)
+crmservice list accounts --all --max-results 500 -o jsonl
+
+# Unlimited (use only when necessary)
+crmservice search accounts '{"$eq":["account_type","Customer"]}' --all --max-results 0 -o jsonl
 ```
 
-If the backend returns a total in `.meta.total`, compute page count first:
+For a single-page preview or when you need `.meta.total`, use normal pagination:
 
 ```bash
-page_size=100
-total=$(crmservice list accounts --page 1 --page-size 1 --full -o json | jq -r '.meta.total // 0')
-pages=$(( (total + page_size - 1) / page_size ))
-for page in $(seq 1 "$pages"); do
-  crmservice list accounts --page "$page" --page-size "$page_size" -o jsonl
-done
+crmservice list accounts --page 1 --page-size 1 --full -o json | jq '.meta'
 ```
+
+Manual page loops are still possible but rarely needed now that `--all` exists.
 
 ### Safe Create / Update Flow
 
@@ -532,6 +542,7 @@ Run `crmservice skill install` after upgrading the CLI to keep the on-disk skill
 - For `--output json` and `--output yaml`, list/search output is a flat array of records by default: top-level `id` plus flattened resource attributes; use `--full` for the complete JSON:API response envelope
 - `--output jsonl` writes one JSON record per line
 - Filters must be valid JSON filter expressions; use `crmservice filter reference` and `crmservice filter validate '<json>'` for help
-- Pagination uses --page and --page-size or --offset
+- Pagination uses `--page` and `--page-size` or `--offset` for single-page requests; use `--all --max-results N` (or `0` for unlimited) to fetch every page
+- `--max-results` without `--all` is an error; `--page` / `--offset` with `--all` is an error
 - List/search sorting uses JSON:API `--sort` syntax: comma-separated fields, with `-` prefix for descending (for example `--sort "last_name,first_name"` or `--sort "-created_at"`)
 - Authentication must always be available by either: default config file, environment variable or command-line argument

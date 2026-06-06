@@ -103,6 +103,28 @@ crmservice list accounts --output jsonl
 crmservice list accounts --output json --full
 ```
 
+#### Fetch all pages (`--all`)
+
+Use `--all` to fetch every page in one command. `--max-results` is required with `--all` (`0` = unlimited). `--page` and `--offset` cannot be used with `--all`. Default `--page-size` with `--all` is 100.
+
+For exports and agent pipelines, prefer `-o jsonl`: one record per line streams cleanly into `jq`, `bulk-create`, and `bulk-update`. Use `-o json` when you need a single JSON array.
+
+```bash
+# Preview first page (default pagination)
+crmservice list accounts --page-size 20 -o json
+
+# Bounded export: fetch all pages, stop at 500 records
+crmservice list accounts --all --max-results 500 -o jsonl
+
+# Unlimited export (use with care)
+crmservice search accounts '{"$eq":["account_type","Customer"]}' --all --max-results 0 -o jsonl
+
+# Full JSON:API records across pages
+crmservice list accounts --all --max-results 1000 --full -o json
+```
+
+When `--max-results` is reached and more records may exist, a truncation status is printed to stderr in the requested output format (`-o json`, `-o jsonl`, etc.). Use `--verbose 1` to log page progress to stderr.
+
 ### Get Record
 
 ```bash
@@ -294,7 +316,9 @@ crmservice skill install
 
 ## JSON:API Compliance
 
-For `--output json` and `--output yaml`, list/search responses are flattened to record objects by default (top-level `id` plus `attributes`). Use `--full` to output the complete JSON:API response envelope.
+For `--output json` and `--output yaml`, list/search responses are flattened to record objects by default (top-level `id` plus `attributes`). Use `--full` to output the complete JSON:API response envelope. For multi-record exports, prefer `--output jsonl` (especially with `--all`).
+
+`--max-results` is only valid with `--all`. Passing `--max-results` without `--all` is an error.
 
 The client follows JSON:API specification (v1.0) for:
 - Resource objects

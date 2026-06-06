@@ -498,3 +498,51 @@ func ErrorResponse(err error) error {
 	fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 	return err
 }
+
+type truncationStatus struct {
+	Status     string `json:"status"`
+	MaxResults int    `json:"max_results"`
+	Returned   int    `json:"returned"`
+	Message    string `json:"message"`
+}
+
+func TruncationStatus(format string, returned, maxResults int) error {
+	status := truncationStatus{
+		Status:     "truncated",
+		MaxResults: maxResults,
+		Returned:   returned,
+		Message:    fmt.Sprintf("Returned %d records (limit %d); more records may exist", returned, maxResults),
+	}
+
+	switch format {
+	case "json":
+		encoder := json.NewEncoder(os.Stderr)
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(status)
+	case "jsonl":
+		encoder := json.NewEncoder(os.Stderr)
+		return encoder.Encode(status)
+	case "yaml":
+		encoder := yaml.NewEncoder(os.Stderr)
+		encoder.SetIndent(2)
+		return encoder.Encode(status)
+	case "csv":
+		writer := csv.NewWriter(os.Stderr)
+		if err := writer.Write([]string{"status", "max_results", "returned", "message"}); err != nil {
+			return err
+		}
+		if err := writer.Write([]string{
+			status.Status,
+			fmt.Sprintf("%d", status.MaxResults),
+			fmt.Sprintf("%d", status.Returned),
+			status.Message,
+		}); err != nil {
+			return err
+		}
+		writer.Flush()
+		return writer.Error()
+	default:
+		fmt.Fprintf(os.Stderr, "Truncated: %s\n", status.Message)
+		return nil
+	}
+}

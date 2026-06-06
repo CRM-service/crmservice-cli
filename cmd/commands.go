@@ -364,16 +364,8 @@ func listCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().Int("page-size", 20, "Items per page")
-	cmd.Flags().String("include", "", "Comma-separated relation names to include")
-	cmd.Flags().String("fields", "", "Comma-separated field names to include")
-	cmd.Flags().String("sort", "", "Comma-separated field names to sort by (prefix with - for descending)")
-	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
+	addListSearchFlags(cmd)
 	cmd.Flags().String("filter", "", "Filter in JSON format")
-	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
-	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
-	cmd.Flags().Int("page", 1, "Page number")
-	cmd.Flags().Int("offset", 0, "Offset for pagination")
 
 	return cmd
 }
@@ -397,7 +389,12 @@ func runListCommand(cmd *cobra.Command, args []string, filterOverride string) er
 		return err
 	}
 
-	pageSize, err := getPageSizeFromFlagConfig(cmd)
+	all, maxResults, err := validateListAllFlags(cmd)
+	if err != nil {
+		return err
+	}
+
+	pageSize, err := pageSizeForList(cmd, all)
 	if err != nil {
 		return err
 	}
@@ -472,14 +469,18 @@ func runListCommand(cmd *cobra.Command, args []string, filterOverride string) er
 		opts.AddInclude(include)
 	}
 
-	resp, err := apiClient.List(cmd.Context(), module, opts)
-	if err != nil {
-		return output.ErrorResponse(err)
-	}
-
 	var outputFields []string
 	if fields != "" {
 		outputFields = splitCommaSeparated(fields)
+	}
+
+	if all {
+		return runListAll(cmd, apiClient, module, opts, pageSize, maxResults, verbose, full, outputFormat, outputFields)
+	}
+
+	resp, err := apiClient.List(cmd.Context(), module, opts)
+	if err != nil {
+		return output.ErrorResponse(err)
 	}
 
 	return output.ListResponse(resp, output.Options{
@@ -972,15 +973,7 @@ func searchCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().Int("page-size", 20, "Items per page")
-	cmd.Flags().String("include", "", "Comma-separated relation names to include")
-	cmd.Flags().String("fields", "", "Comma-separated field names to include")
-	cmd.Flags().String("sort", "", "Comma-separated field names to sort by (prefix with - for descending)")
-	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
-	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
-	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
-	cmd.Flags().Int("page", 1, "Page number")
-	cmd.Flags().Int("offset", 0, "Offset for pagination")
+	addListSearchFlags(cmd)
 
 	return cmd
 }
