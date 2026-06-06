@@ -26,6 +26,7 @@ CRM-service CLI is a command-line tool for interacting with the CRM-service REST
 | `list` | List records with pagination |
 | `modules` | List available API modules |
 | `search` | Search records with a JSON filter (alias for `list --filter`) |
+| `skill` | Install, inspect, and print the bundled Agent Skill |
 | `update` | Update an existing record |
 | `whoami` | Show the authenticated CRM user |
 
@@ -457,6 +458,40 @@ Set environment variables or use a config file:
 
 - `CRMSERVICE_API_URL`: API base URL
 - `CRMSERVICE_AUTH_TOKEN`: Bearer token for authentication
+- `CRMSERVICE_OUTPUT_FORMAT`: Default output format (`table`, `json`, `yaml`, `jsonl`, or `csv`)
+- `CRMSERVICE_PAGE_SIZE`: Default page size for `list`, `search`, and other paginated commands
+- `CRMSERVICE_TIMEOUT`: Request timeout in seconds
+- `CRMSERVICE_CACHE_DIR`: Schema cache directory (useful in CI and agent sandboxes)
+
+### Agent Defaults
+
+For automated agent work, set these environment variables so every command uses machine-readable output and sensible pagination without repeating flags:
+
+```bash
+export CRMSERVICE_OUTPUT_FORMAT=json
+export CRMSERVICE_PAGE_SIZE=100
+```
+
+Always pass `-o json` or `-o jsonl` explicitly when a specific format matters (for example JSONL pipelines). `CRMSERVICE_OUTPUT_FORMAT` applies only when `-o` / `--output` is not given. Prefer `jsonl` for streaming and bulk pipelines; prefer `json` for single-shot array results.
+
+The CLI default output is `table`, which is unsuitable for agent parsing. Either set `CRMSERVICE_OUTPUT_FORMAT=json` or pass `-o json` / `-o jsonl` on every data command.
+
+### Agent Skill
+
+The CLI bundles this skill. Use the `skill` subcommand to inspect or install it:
+
+```bash
+# Show where the bundled skill will be installed
+crmservice skill path
+
+# Review the bundled skill content (same document as this skill)
+crmservice skill print
+
+# Install or update the skill in ~/.agents/skills/crmservice/SKILL.md
+crmservice skill install
+```
+
+Run `crmservice skill install` after upgrading the CLI to keep the on-disk skill in sync with the bundled version.
 
 ## Notes
 
