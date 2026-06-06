@@ -290,6 +290,17 @@ crmservice filter validate '{"$and":[{"$eq":["account_type","Customer"]},{"$cts"
 crmservice modules
 ```
 
+### Preflight Checks
+
+Run before automated agent work to verify config, API reachability, token, authentication, and schema cache writability:
+
+```bash
+crmservice doctor
+crmservice doctor -o json
+```
+
+`doctor -o json` returns structured fields including `ok`, `issues`, `api_reachable`, `authenticated`, and `cache_writable`. Exit code is non-zero when checks fail.
+
 ### Show Current User
 
 ```bash
