@@ -235,3 +235,28 @@ func TestTruncationStatusFormats(t *testing.T) {
 		})
 	}
 }
+
+func TestDedupeIncludedResources(t *testing.T) {
+	items := []interface{}{
+		map[string]interface{}{"id": "1", "type": "users", "attributes": map[string]interface{}{"name": "Owner"}},
+		map[string]interface{}{"id": "1", "type": "users", "attributes": map[string]interface{}{"name": "Owner duplicate"}},
+		map[string]interface{}{"id": "2", "type": "users", "attributes": map[string]interface{}{"name": "Creator"}},
+		map[string]interface{}{"id": "1", "type": "teams", "attributes": map[string]interface{}{"name": "Team"}},
+	}
+
+	deduped := dedupeIncludedResources(items)
+	if len(deduped) != 3 {
+		t.Fatalf("len(deduped) = %d, want 3", len(deduped))
+	}
+	first, ok := deduped[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("deduped[0] = %T, want map", deduped[0])
+	}
+	attrs, ok := first["attributes"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("first[attributes] = %T, want map", first["attributes"])
+	}
+	if attrs["name"] != "Owner" {
+		t.Errorf("first duplicate should be retained, got attributes: %v", attrs)
+	}
+}

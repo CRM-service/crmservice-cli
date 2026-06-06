@@ -187,6 +187,31 @@ func appendSlices(dst []interface{}, src interface{}) []interface{} {
 	return append(dst, toInterfaceSlice(src)...)
 }
 
+func dedupeIncludedResources(items []interface{}) []interface{} {
+	seen := make(map[string]bool, len(items))
+	deduped := make([]interface{}, 0, len(items))
+	for _, item := range items {
+		itemMap, ok := item.(map[string]interface{})
+		if !ok {
+			deduped = append(deduped, item)
+			continue
+		}
+		id, idOK := itemMap["id"]
+		resourceType, typeOK := itemMap["type"]
+		if !idOK || !typeOK {
+			deduped = append(deduped, item)
+			continue
+		}
+		key := fmt.Sprintf("%v:%v", resourceType, id)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		deduped = append(deduped, item)
+	}
+	return deduped
+}
+
 func runListAll(
 	cmd *cobra.Command,
 	apiClient *api.Client,
@@ -206,7 +231,7 @@ func runListAll(
 
 	resp := &api.Response{Data: result.data}
 	if full && len(result.included) > 0 {
-		resp.Included = result.included
+		resp.Included = dedupeIncludedResources(result.included)
 	}
 
 	if err := output.ListResponse(resp, output.Options{
