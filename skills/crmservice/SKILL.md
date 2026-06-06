@@ -42,8 +42,9 @@ Key contracts:
 - `filter validate` → optional standalone check; stdout only; exit 0 = valid, non-zero = invalid
 - `--all --max-results N` → truncation status on **stderr**; exit code stays 0
 - `bulk-*` production writes → `--summary -o json`; with `--continue-on-error`, check `failed > 0`
+- `skill install --check` → stdout only; exit 0 = up to date; non-zero = missing or stale
 
-Recommended env defaults: `CRMSERVICE_OUTPUT_FORMAT=json`, `CRMSERVICE_PAGE_SIZE=100`. Run `crmservice skill install` after upgrading the CLI.
+Recommended env defaults: `CRMSERVICE_OUTPUT_FORMAT=json`, `CRMSERVICE_PAGE_SIZE=100`. After upgrading the CLI, run `crmservice skill install --check -o json`; if not up to date, run `crmservice skill install`.
 
 ## Base Commands
 
@@ -585,9 +586,14 @@ crmservice skill print
 
 # Install or update the skill in ~/.agents/skills/crmservice/SKILL.md
 crmservice skill install
+
+# Check whether the installed skill matches the bundled version
+crmservice skill install --check -o json
 ```
 
-Run `crmservice skill install` after upgrading the CLI to keep the on-disk skill in sync with the bundled version.
+`skill install --check` compares the installed `SKILL.md` with the bundled copy (SHA-256). It writes the result to **stdout** only in the requested output format. Exit code `0` means up to date; non-zero means missing or stale. The stdout payload includes `status` (`up_to_date`, `stale`, or `missing`), `up_to_date`, `installed`, `path`, `bundled_hash`, `installed_hash`, and `message`.
+
+Run `crmservice skill install --check -o json` after upgrading the CLI. If `status` is `stale` or `missing`, run `crmservice skill install` to refresh the on-disk skill.
 
 ## Notes
 
