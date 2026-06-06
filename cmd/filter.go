@@ -127,10 +127,7 @@ func filterCmd() *cobra.Command {
 
 			if module == "" {
 				if err := validateFilterJSON(filterJSON); err != nil {
-					if emitErr := outputFilterValidateError(outputFormat, filterValidateFailure("", filterJSON, false, err)); emitErr != nil {
-						return &output.ReportedError{Err: emitErr}
-					}
-					return &output.ReportedError{Err: err}
+					return outputFilterValidate(outputFormat, filterValidateFailure("", filterJSON, false, err))
 				}
 				return outputFilterValidate(outputFormat, filterValidateSuccess("", filterJSON, false))
 			}
@@ -145,10 +142,7 @@ func filterCmd() *cobra.Command {
 				return err
 			}
 			if err := validateFilterJSONAgainstModule(module, filterJSON, url, token, verbose); err != nil {
-				if emitErr := outputFilterValidateError(outputFormat, filterValidateFailure(module, filterJSON, true, err)); emitErr != nil {
-					return &output.ReportedError{Err: emitErr}
-				}
-				return &output.ReportedError{Err: err}
+				return outputFilterValidate(outputFormat, filterValidateFailure(module, filterJSON, true, err))
 			}
 			return outputFilterValidate(outputFormat, filterValidateSuccess(module, filterJSON, true))
 		},
@@ -313,10 +307,6 @@ func parseFilterJSONValue(input string) (interface{}, error) {
 		return nil, err
 	}
 	return filter, nil
-}
-
-func outputFilterValidateError(format string, data map[string]interface{}) error {
-	return output.WriteStderr(format, data)
 }
 
 func outputFilterValidate(format string, data map[string]interface{}) error {

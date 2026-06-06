@@ -281,8 +281,11 @@ Filter tooling:
 
 ```bash
 crmservice filter reference
-crmservice filter validate '{"$and":[{"$eq":["account_type","Customer"]},{"$cts":["name","Acme"]}]}'
+crmservice filter validate '{"$and":[{"$eq":["account_type","Customer"]},{"$cts":["name","Acme"]}]}' -o json
+crmservice filter validate accounts '{"$eq":["account_type","Customer"]}' -o json
 ```
+
+`filter validate` always prints the result to stdout and exits 0. Check the `valid` field in the output; use `jq -e '.valid'`.
 
 ### Discover Modules
 

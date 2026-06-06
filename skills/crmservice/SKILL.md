@@ -180,7 +180,7 @@ For filtered batch updates, validate the filter, build a minimal `{id, changed_f
 ```bash
 filter='{"$eq":["account_type","Prospect"]}'
 
-crmservice filter validate "$filter"
+crmservice filter validate accounts "$filter" -o json
 
 crmservice search accounts "$filter" --all --max-results 500 --fields "id,account_type" -o jsonl \
   | jq -c '{id, account_type:"Customer"}' \
@@ -221,11 +221,13 @@ Use `--full` to receive the complete raw schema document returned by the backend
 ### Filter Language Tooling
 ```bash
 crmservice filter reference
-crmservice filter validate '{"$and":[{"$eq":["account_type","Customer"]},{"$cts":["name","Acme"]}]}'
+crmservice filter validate '{"$and":[{"$eq":["account_type","Customer"]},{"$cts":["name","Acme"]}]}' -o json
 
 # Validate syntax and check field names against cached module schema
-crmservice filter validate accounts '{"$eq":["account_type","Customer"]}'
+crmservice filter validate accounts '{"$eq":["account_type","Customer"]}' -o json
 ```
+
+`filter validate` always writes the result to **stdout** in the requested output format and exits 0. Check the `valid` field (`true` / `false`); do not rely on exit code for validation outcome.
 
 ### Preflight Checks
 ```bash
@@ -320,7 +322,7 @@ crmservice list contacts --filter '{"$eq":["account.account_type","Customer"]}'
 
 ### Filter Tooling
 
-Use `crmservice filter reference` for an offline reference and `crmservice filter validate '<json>'` to catch JSON syntax errors and common operator shape mistakes before calling the API. Validation is intentionally lightweight; field existence and permissions are still checked by the backend.
+Use `crmservice filter reference` for an offline reference and `crmservice filter validate '<json>' -o json` to catch JSON syntax errors and common operator shape mistakes before calling the API. Parse stdout and check `valid`; exit code is always 0 for validation results. Validation is intentionally lightweight; field existence and permissions are still checked by the backend.
 
 ## Common Agent / Scripting Patterns
 

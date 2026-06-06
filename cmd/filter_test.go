@@ -102,22 +102,27 @@ func TestFilterValidateCmdJSONFailureOutput(t *testing.T) {
 	cmd := filterCmd()
 	cmd.SetArgs([]string{"validate", "-o", "json", `{`})
 
+	var stdout string
 	stderr := captureStderr(t, func() {
-		if err := cmd.Execute(); err == nil {
-			t.Fatal("Execute() error = nil, expected error")
-		}
+		stdout = captureStdout(t, func() {
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("Execute() returned error: %v", err)
+			}
+		})
 	})
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("stderr = %q, expected empty", stderr)
+	}
 
-	decoder := json.NewDecoder(strings.NewReader(stderr))
 	var result map[string]interface{}
-	if err := decoder.Decode(&result); err != nil {
-		t.Fatalf("json.Decode(stderr) returned error: %v\nstderr: %s", err, stderr)
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+		t.Fatalf("json.Unmarshal(stdout) returned error: %v\nstdout: %s", err, stdout)
 	}
 	if result["valid"] != false {
 		t.Errorf("valid = %v, expected false", result["valid"])
 	}
 	if result["message"] == nil {
-		t.Error("expected message in stderr JSON output")
+		t.Error("expected message in stdout JSON output")
 	}
 }
 
