@@ -118,8 +118,12 @@ crmservice create accounts \
   --field email="test@example.com" \
   --field phone="123-456-7890"
 
-# Or pass a JSON:API request body via stdin
-printf '{"data":{"type":"accounts","attributes":{"name":"Test Corp","email":"test@example.com"}}}' \
+# Or pass a flat JSON object via stdin
+echo '{"name":"Test Corp","email":"test@example.com","phone":"123-456-7890"}' \
+  | crmservice create accounts
+
+# Full JSON:API request bodies are also supported
+echo '{"data":{"type":"accounts","attributes":{"name":"Test Corp","email":"test@example.com"}}}' \
   | crmservice create accounts
 ```
 
@@ -146,8 +150,12 @@ crmservice list accounts -o jsonl \
 ```bash
 crmservice update accounts <id> --field name="New Name"
 
-# Or pass a JSON:API request body via stdin
-printf '{"data":{"type":"accounts","id":"<id>","attributes":{"name":"New Name"}}}' \
+# Or pass a flat JSON object via stdin. If id is present, it must match the argument.
+echo '{"id":"<id>","name":"New Name"}' \
+  | crmservice update accounts <id>
+
+# Full JSON:API request bodies are also supported
+echo '{"data":{"type":"accounts","id":"<id>","attributes":{"name":"New Name"}}}' \
   | crmservice update accounts <id>
 ```
 

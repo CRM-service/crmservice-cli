@@ -100,7 +100,11 @@ crmservice get accounts 123 --fields "name,email"
 ```bash
 crmservice create accounts --field "name=Acme Corp" --field "account_type=Customer"
 
-# Or provide a complete JSON:API request body via stdin
+# Prefer flat JSON objects via stdin for scripted creates
+printf '{"name":"Acme Corp","account_type":"Customer"}' \
+  | crmservice create accounts
+
+# Complete JSON:API request bodies are also supported
 printf '{"data":{"type":"accounts","attributes":{"name":"Acme Corp","account_type":"Customer"}}}' \
   | crmservice create accounts
 ```
@@ -120,7 +124,11 @@ crmservice list accounts -o jsonl \
 ```bash
 crmservice update accounts 123 --field "account_type=Partner" --field "notes=Updated"
 
-# Or provide a complete JSON:API request body via stdin
+# Prefer flat JSON objects via stdin for scripted updates. If id is present, it must match the argument.
+printf '{"id":"123","account_type":"Partner","notes":"Updated"}' \
+  | crmservice update accounts 123
+
+# Complete JSON:API request bodies are also supported
 printf '{"data":{"type":"accounts","id":"123","attributes":{"account_type":"Partner","notes":"Updated"}}}' \
   | crmservice update accounts 123
 ```
@@ -463,7 +471,7 @@ Set environment variables or use a config file:
 - Schema defines the datatype fields. Invalid values must never be sent to the API
 - Field schema may contain custom fields. Name prefixed with `cf_`
 - Field values for create/update use `--field "name=value"` syntax
-- Create/update can alternatively read a complete JSON:API request body from stdin; do not combine stdin body input with `--field`
+- Create/update can alternatively read a flat JSON object or a complete JSON:API request body from stdin; prefer flat JSON for scripts; do not combine stdin body input with `--field`; update rejects a stdin `id` that does not match the command argument
 - Bulk-create/bulk-update read flat JSONL records or a JSON array from stdin; bulk-create ignores input `id`, bulk-update requires input `id`
 - Output formats support table (default), json, yaml, jsonl, and csv
 - For `--output json` and `--output yaml`, list/search output is a flat array of records by default: top-level `id` plus flattened resource attributes; use `--full` for the complete JSON:API response envelope
