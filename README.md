@@ -275,6 +275,23 @@ crmservice whoami
 crmservice whoami --output json
 ```
 
+### Agent Skill
+
+The CLI bundles the crmservice Agent Skill used by coding agents for CRM-service API workflows.
+
+```bash
+# Show where the bundled skill will be installed
+crmservice skill path
+
+# Review the bundled skill content
+crmservice skill print
+
+# Install or update the skill in ~/.agents/skills/crmservice/SKILL.md
+crmservice skill install
+```
+
+`skill install` installs the latest bundled version of the skill.
+
 ## JSON:API Compliance
 
 For `--output json` and `--output yaml`, list/search responses are flattened to record objects by default (top-level `id` plus `attributes`). Use `--full` to output the complete JSON:API response envelope.
