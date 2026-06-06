@@ -285,7 +285,7 @@ crmservice filter validate '{"$and":[{"$eq":["account_type","Customer"]},{"$cts"
 crmservice filter validate accounts '{"$eq":["account_type","Customer"]}' -o json
 ```
 
-`filter validate` always prints the result to stdout and exits 0. Check the `valid` field in the output; use `jq -e '.valid'`.
+`filter validate` prints the result to stdout only. Exit code 0 means the filter is valid; non-zero means invalid. The stdout payload still includes `valid`, `message`, and related fields for inspection.
 
 ### Discover Modules
 

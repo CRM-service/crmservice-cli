@@ -105,8 +105,8 @@ func TestFilterValidateCmdJSONFailureOutput(t *testing.T) {
 	var stdout string
 	stderr := captureStderr(t, func() {
 		stdout = captureStdout(t, func() {
-			if err := cmd.Execute(); err != nil {
-				t.Fatalf("Execute() returned error: %v", err)
+			if err := cmd.Execute(); err == nil {
+				t.Fatal("Execute() error = nil, expected validation failure")
 			}
 		})
 	})

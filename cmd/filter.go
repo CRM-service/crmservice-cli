@@ -101,8 +101,10 @@ func filterCmd() *cobra.Command {
 	})
 
 	validateCmd := &cobra.Command{
-		Use:   "validate [module] <filter-json>",
-		Short: "Validate filter JSON syntax and optionally check fields against module schema",
+		Use:           "validate [module] <filter-json>",
+		Short:         "Validate filter JSON syntax and optionally check fields against module schema",
+		SilenceErrors: true,
+		SilenceUsage:  true,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 || len(args) > 2 {
 				return fmt.Errorf("requires 1 or 2 arguments")
@@ -127,9 +129,9 @@ func filterCmd() *cobra.Command {
 
 			if module == "" {
 				if err := validateFilterJSON(filterJSON); err != nil {
-					return outputFilterValidate(outputFormat, filterValidateFailure("", filterJSON, false, err))
+					return outputFilterValidateResult(outputFormat, filterValidateFailure("", filterJSON, false, err))
 				}
-				return outputFilterValidate(outputFormat, filterValidateSuccess("", filterJSON, false))
+				return outputFilterValidateResult(outputFormat, filterValidateSuccess("", filterJSON, false))
 			}
 
 			url := getURLFromFlagOrEnv(cmd)
@@ -142,9 +144,9 @@ func filterCmd() *cobra.Command {
 				return err
 			}
 			if err := validateFilterJSONAgainstModule(module, filterJSON, url, token, verbose); err != nil {
-				return outputFilterValidate(outputFormat, filterValidateFailure(module, filterJSON, true, err))
+				return outputFilterValidateResult(outputFormat, filterValidateFailure(module, filterJSON, true, err))
 			}
-			return outputFilterValidate(outputFormat, filterValidateSuccess(module, filterJSON, true))
+			return outputFilterValidateResult(outputFormat, filterValidateSuccess(module, filterJSON, true))
 		},
 	}
 	validateCmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
@@ -307,6 +309,20 @@ func parseFilterJSONValue(input string) (interface{}, error) {
 		return nil, err
 	}
 	return filter, nil
+}
+
+func outputFilterValidateResult(format string, data map[string]interface{}) error {
+	if err := outputFilterValidate(format, data); err != nil {
+		return err
+	}
+	if valid, ok := data["valid"].(bool); ok && !valid {
+		message := "filter validation failed"
+		if msg, ok := data["message"].(string); ok && msg != "" {
+			message = msg
+		}
+		return &output.ReportedError{Err: fmt.Errorf("%s", message)}
+	}
+	return nil
 }
 
 func outputFilterValidate(format string, data map[string]interface{}) error {

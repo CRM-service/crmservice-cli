@@ -22,8 +22,8 @@ crmservice doctor -o json
 # 1. Discover real API field names and types
 crmservice fields <module> -o json
 
-# 2. Validate filter syntax and field names (stdout only; exits 0 — check valid)
-crmservice filter validate <module> '<filter-json>' -o json | jq -e '.valid'
+# 2. Validate filter syntax and field names (stdout only; exit 0 = valid)
+crmservice filter validate <module> '<filter-json>' -o json
 
 # 3. Read records (prefer jsonl + --all; inspect stderr for truncated)
 crmservice search <module> '<filter-json>' --all --max-results 500 -o jsonl
@@ -38,7 +38,7 @@ printf '{"id":"123","field":"value"}\n' | crmservice bulk-update <module> --summ
 
 Key contracts:
 
-- `filter validate` → stdout, exit 0; use `jq -e '.valid'`, not exit code
+- `filter validate` → stdout only; exit 0 = valid, non-zero = invalid
 - `--all --max-results N` → truncation status on **stderr**; exit code stays 0
 - `bulk-*` production writes → `--summary -o json`; with `--continue-on-error`, check `failed > 0`
 
@@ -213,7 +213,7 @@ For filtered batch updates, validate the filter, build a minimal `{id, changed_f
 ```bash
 filter='{"$eq":["account_type","Prospect"]}'
 
-crmservice filter validate accounts "$filter" -o json | jq -e '.valid'
+crmservice filter validate accounts "$filter" -o json
 
 crmservice search accounts "$filter" --all --max-results 500 --fields "id,account_type" -o jsonl \
   | jq -c '{id, account_type:"Customer"}' \
@@ -260,7 +260,7 @@ crmservice filter validate '{"$and":[{"$eq":["account_type","Customer"]},{"$cts"
 crmservice filter validate accounts '{"$eq":["account_type","Customer"]}' -o json
 ```
 
-`filter validate` always writes the result to **stdout** in the requested output format and exits 0. Check the `valid` field (`true` / `false`); do not rely on exit code for validation outcome.
+`filter validate` writes the result to **stdout** only in the requested output format. Exit code 0 means valid; non-zero means invalid. The stdout payload includes `valid`, `message`, and related fields for inspection.
 
 ### Preflight Checks
 ```bash
@@ -355,7 +355,7 @@ crmservice list contacts --filter '{"$eq":["account.account_type","Customer"]}'
 
 ### Filter Tooling
 
-Use `crmservice filter reference` for an offline reference and `crmservice filter validate '<json>' -o json` to catch JSON syntax errors and common operator shape mistakes before calling the API. Parse stdout and check `valid`; exit code is always 0 for validation results. Validation is intentionally lightweight; field existence and permissions are still checked by the backend.
+Use `crmservice filter reference` for an offline reference and `crmservice filter validate '<json>' -o json` to catch JSON syntax errors and common operator shape mistakes before calling the API. Exit code 0 means valid; non-zero means invalid. Validation is intentionally lightweight; field existence and permissions are still checked by the backend.
 
 ## Common Agent / Scripting Patterns
 
@@ -520,7 +520,7 @@ Battle-tested jq tips:
 - Use `jq -c` for compact one-object-per-line output that can be piped into `bulk-create` / `bulk-update`.
 - Use `//` for defaults: `(.email // "")`.
 - Use `del(...)` to remove fields that should not be written.
-- Use `jq -e` when a script should fail if a validation expression is false/null.
+- Use `jq -e` when a script should fail if a jq expression is false/null.
 - Keep `id` for `bulk-update`; remove or ignore `id` for `bulk-create`.
 
 ## Configuration
