@@ -98,6 +98,29 @@ func TestFilterValidateCmdJSONOutput(t *testing.T) {
 	}
 }
 
+func TestFilterValidateCmdJSONFailureOutput(t *testing.T) {
+	cmd := filterCmd()
+	cmd.SetArgs([]string{"validate", "-o", "json", `{`})
+
+	stderr := captureStderr(t, func() {
+		if err := cmd.Execute(); err == nil {
+			t.Fatal("Execute() error = nil, expected error")
+		}
+	})
+
+	decoder := json.NewDecoder(strings.NewReader(stderr))
+	var result map[string]interface{}
+	if err := decoder.Decode(&result); err != nil {
+		t.Fatalf("json.Decode(stderr) returned error: %v\nstderr: %s", err, stderr)
+	}
+	if result["valid"] != false {
+		t.Errorf("valid = %v, expected false", result["valid"])
+	}
+	if result["message"] == nil {
+		t.Error("expected message in stderr JSON output")
+	}
+}
+
 func TestFilterValidateCmdHasOutputFlag(t *testing.T) {
 	cmd := filterCmd()
 	validate := cmd.Commands()[1]

@@ -127,6 +127,9 @@ func filterCmd() *cobra.Command {
 
 			if module == "" {
 				if err := validateFilterJSON(filterJSON); err != nil {
+					if emitErr := outputFilterValidateError(outputFormat, filterValidateFailure("", filterJSON, false, err)); emitErr != nil {
+						return emitErr
+					}
 					return err
 				}
 				return outputFilterValidate(outputFormat, filterValidateSuccess("", filterJSON, false))
@@ -142,6 +145,9 @@ func filterCmd() *cobra.Command {
 				return err
 			}
 			if err := validateFilterJSONAgainstModule(module, filterJSON, url, token, verbose); err != nil {
+				if emitErr := outputFilterValidateError(outputFormat, filterValidateFailure(module, filterJSON, true, err)); emitErr != nil {
+					return emitErr
+				}
 				return err
 			}
 			return outputFilterValidate(outputFormat, filterValidateSuccess(module, filterJSON, true))
@@ -267,6 +273,21 @@ func collectFilterFieldsWalk(expr interface{}, fields *[]string) {
 	}
 }
 
+func filterValidateFailure(module, filterJSON string, schemaChecked bool, validationErr error) map[string]interface{} {
+	result := map[string]interface{}{
+		"valid":          false,
+		"schema_checked": schemaChecked,
+		"message":        validationErr.Error(),
+	}
+	if module != "" {
+		result["module"] = module
+	}
+	if parsed, err := parseFilterJSONValue(filterJSON); err == nil {
+		result["filter"] = parsed
+	}
+	return result
+}
+
 func filterValidateSuccess(module, filterJSON string, schemaChecked bool) map[string]interface{} {
 	result := map[string]interface{}{
 		"valid":          true,
@@ -292,6 +313,10 @@ func parseFilterJSONValue(input string) (interface{}, error) {
 		return nil, err
 	}
 	return filter, nil
+}
+
+func outputFilterValidateError(format string, data map[string]interface{}) error {
+	return output.WriteStderr(format, data)
 }
 
 func outputFilterValidate(format string, data map[string]interface{}) error {
