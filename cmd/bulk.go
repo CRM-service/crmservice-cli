@@ -357,7 +357,10 @@ func processBulkRecord(ctx context.Context, client *api.Client, module, operatio
 
 func bulkRequestBody(module, operation string, record bulkRecord) (map[string]interface{}, string, error) {
 	if data, ok := record["data"].(map[string]interface{}); ok {
-		id, _ := data["id"].(string)
+		id := ""
+		if idValue, ok := data["id"].(string); ok {
+			id = idValue
+		}
 		if operation == "create" {
 			delete(data, "id")
 		} else if id == "" {
