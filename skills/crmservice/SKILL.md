@@ -22,7 +22,7 @@ crmservice doctor -o json
 # 1. Discover real API field names and types
 crmservice fields <module> -o json
 
-# 2. Validate filter syntax and field names (stdout only; exit 0 = valid)
+# 2. Optional dry-run check (list/search/count validate filters automatically)
 crmservice filter validate <module> '<filter-json>' -o json
 
 # 3. Read records (prefer jsonl + --all; inspect stderr for truncated)
@@ -38,7 +38,8 @@ printf '{"id":"123","field":"value"}\n' | crmservice bulk-update <module> --summ
 
 Key contracts:
 
-- `filter validate` → stdout only; exit 0 = valid, non-zero = invalid
+- `list` / `search` / `count` → validate filter syntax and schema field names before API calls
+- `filter validate` → optional standalone check; stdout only; exit 0 = valid, non-zero = invalid
 - `--all --max-results N` → truncation status on **stderr**; exit code stays 0
 - `bulk-*` production writes → `--summary -o json`; with `--continue-on-error`, check `failed > 0`
 
@@ -370,7 +371,7 @@ crmservice list contacts --filter '{"$eq":["account.account_type","Customer"]}'
 
 ### Filter Tooling
 
-Use `crmservice filter reference` for an offline reference and `crmservice filter validate '<json>' -o json` to catch JSON syntax errors and common operator shape mistakes before calling the API. Exit code 0 means valid; non-zero means invalid. Validation is intentionally lightweight; field existence and permissions are still checked by the backend.
+Use `crmservice filter reference` for an offline reference. `list`, `search`, and `count` always validate filters locally (syntax, operator shape, and field names against module schema) before calling the API. Use `crmservice filter validate '<json>' -o json` when you want a standalone stdout-only check without a data request. Field types and permissions are still enforced by the backend.
 
 ## Common Agent / Scripting Patterns
 
@@ -606,7 +607,7 @@ Run `crmservice skill install` after upgrading the CLI to keep the on-disk skill
 - Output formats support table (default), json, yaml, jsonl, and csv
 - For `--output json` and `--output yaml`, list/search output is a flat array of records by default: top-level `id` plus flattened resource attributes; use `--full` for the complete JSON:API response envelope
 - `--output jsonl` writes one JSON record per line
-- Filters must be valid JSON filter expressions; use `crmservice filter reference` and `crmservice filter validate '<json>'` for help
+- Filters must be valid JSON filter expressions; `list`, `search`, and `count` validate them against module schema automatically; use `crmservice filter reference` and `crmservice filter validate '<json>'` for help
 - Pagination uses `--page` and `--page-size` or `--offset` for single-page requests; use `--all --max-results N` (or `0` for unlimited) to fetch every page
 - `--max-results` without `--all` is an error; `--page` / `--offset` with `--all` is an error
 - List/search sorting uses JSON:API `--sort` syntax: comma-separated fields, with `-` prefix for descending (for example `--sort "last_name,first_name"` or `--sort "-created_at"`)

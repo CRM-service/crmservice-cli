@@ -52,13 +52,6 @@ func runCountCommand(cmd *cobra.Command, args []string) error {
 		filterJSON = flagFilter
 	}
 
-	var filterObj map[string]interface{}
-	if filterJSON != "" {
-		if err := json.Unmarshal([]byte(filterJSON), &filterObj); err != nil {
-			return fmt.Errorf("invalid filter format. Use JSON syntax: filter={$and:[{$eq:[\"field\",\"value\"]}]}. Error: %v", err)
-		}
-	}
-
 	token, err := getRequiredTokenFromFlagEnvConfig(cmd)
 	if err != nil {
 		return err
@@ -74,6 +67,19 @@ func runCountCommand(cmd *cobra.Command, args []string) error {
 	}
 
 	url := getURLFromFlagOrEnv(cmd)
+
+	if filterJSON != "" {
+		if err := validateModuleFilter(module, filterJSON, url, token, verbose); err != nil {
+			return output.ErrorResponse(err)
+		}
+	}
+
+	var filterObj map[string]interface{}
+	if filterJSON != "" {
+		if err := json.Unmarshal([]byte(filterJSON), &filterObj); err != nil {
+			return fmt.Errorf("invalid filter format. Use JSON syntax: filter={$and:[{$eq:[\"field\",\"value\"]}]}. Error: %v", err)
+		}
+	}
 	apiClient := api.NewClient(url, token)
 	apiClient.Verbose = verbose
 	apiClient.HTTPClient.Timeout = getTimeoutFromConfig()

@@ -433,6 +433,12 @@ func runListCommand(cmd *cobra.Command, args []string, filterOverride string) er
 
 	url := getURLFromFlagOrEnv(cmd)
 
+	if filter != "" {
+		if err := validateModuleFilter(module, filter, url, token, verbose); err != nil {
+			return output.ErrorResponse(err)
+		}
+	}
+
 	apiClient := api.NewClient(url, token)
 	apiClient.Verbose = verbose
 	apiClient.HTTPClient.Timeout = getTimeoutFromConfig()

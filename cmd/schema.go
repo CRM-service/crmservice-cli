@@ -80,6 +80,13 @@ func (s *moduleSchema) validateField(field string, loadRelated func(module strin
 	return fmt.Errorf("unknown field %q", field)
 }
 
+func validateModuleFilter(module, filterJSON, url, token string, verbose int) error {
+	if filterJSON == "" {
+		return nil
+	}
+	return validateFilterJSONAgainstModule(module, filterJSON, url, token, verbose)
+}
+
 func validateFilterJSONAgainstModule(module, input, url, token string, verbose int) error {
 	if err := validateFilterJSON(input); err != nil {
 		return err

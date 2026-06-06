@@ -303,6 +303,8 @@ Common operators:
 
 Use API field names from `crmservice fields <module>`. Related fields can be addressed as `relation.field` when supported by the backend.
 
+`list`, `search`, and `count` always validate filters before calling the API: JSON syntax, operator shape, and field names against the module schema (including one-level relation paths like `account.account_type`). Invalid filters fail locally with a non-zero exit code.
+
 Filter tooling:
 
 ```bash
@@ -311,7 +313,7 @@ crmservice filter validate '{"$and":[{"$eq":["account_type","Customer"]},{"$cts"
 crmservice filter validate accounts '{"$eq":["account_type","Customer"]}' -o json
 ```
 
-`filter validate` prints the result to stdout only. Exit code 0 means the filter is valid; non-zero means invalid. The stdout payload still includes `valid`, `message`, and related fields for inspection.
+`filter validate` is a standalone check that prints the result to stdout only. Exit code 0 means the filter is valid; non-zero means invalid. The stdout payload still includes `valid`, `message`, and related fields for inspection.
 
 ### Discover Modules
 

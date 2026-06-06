@@ -10,6 +10,40 @@ import (
 	"crmservice/internal/config"
 )
 
+func TestCollectFilterFieldsIncludesBareFieldKeys(t *testing.T) {
+	fields := collectFilterFields(map[string]interface{}{"account_type": "Customer"})
+	if len(fields) != 1 {
+		t.Fatalf("len(fields) = %d, expected 1", len(fields))
+	}
+	if fields[0] != "account_type" {
+		t.Errorf("fields[0] = %q, expected account_type", fields[0])
+	}
+}
+
+func TestValidateFilterJSONAgainstModuleRejectsUnknownBareField(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeTestResponse(t, w, `{"attributes":{"name":{"type":"string"},"account_type":{"type":"string"}}}`)
+	}))
+	defer server.Close()
+
+	oldCfg := cfg
+	cfg = &config.Config{
+		Cache: config.CacheConfig{
+			SchemaDir:   t.TempDir(),
+			TTLDays:     1,
+			AutoRefresh: true,
+		},
+		API: config.APIConfig{Timeout: 30},
+	}
+	t.Cleanup(func() { cfg = oldCfg })
+
+	url := server.URL + "/api/v1"
+	err := validateFilterJSONAgainstModule("accounts", `{"missing_field":"x"}`, url, "token", 0)
+	if err == nil {
+		t.Fatal("validateFilterJSONAgainstModule() error = nil, expected error")
+	}
+}
+
 func TestCollectFilterFields(t *testing.T) {
 	filter := `{"$and":[{"$eq":["account_type","Customer"]},{"$cts":["name","Acme"]}]}`
 	if err := validateFilterJSON(filter); err != nil {

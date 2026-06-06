@@ -260,6 +260,10 @@ func collectFilterFieldsWalk(expr interface{}, fields *[]string) {
 		for key, node := range value {
 			if strings.HasPrefix(key, "$") {
 				collectFilterFieldsFromOperator(key, node, fields)
+				continue
+			}
+			if strings.TrimSpace(key) != "" {
+				*fields = append(*fields, key)
 			}
 		}
 	case []interface{}:
