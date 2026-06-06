@@ -20,6 +20,7 @@ CRM-service CLI is a command-line tool for interacting with the CRM-service REST
 | `bulk-update` | Update multiple records from JSONL or a JSON array |
 | `create` | Create a new record in a module |
 | `delete` | Delete a record by ID |
+| `doctor` | Run preflight checks (config, URL, token, cache) |
 | `fields` | Show available fields for a module |
 | `filter` | Show and validate filter language expressions |
 | `get` | Get a single record by ID |
@@ -101,6 +102,9 @@ crmservice get accounts 123 --fields "name,email"
 ```bash
 crmservice create accounts --field "name=Acme Corp" --field "account_type=Customer"
 
+# Preview the JSON:API request body without sending it
+crmservice create accounts --field "name=Acme Corp" --dry-run -o json
+
 # Prefer flat JSON objects via stdin for scripted creates
 printf '{"name":"Acme Corp","account_type":"Customer"}' \
   | crmservice create accounts
@@ -124,6 +128,9 @@ crmservice list accounts -o jsonl \
 ### Update Record
 ```bash
 crmservice update accounts 123 --field "account_type=Partner" --field "notes=Updated"
+
+# Preview the JSON:API request body without sending it
+crmservice update accounts 123 --field "account_type=Partner" --dry-run -o json
 
 # Prefer flat JSON objects via stdin for scripted updates. If id is present, it must match the argument.
 printf '{"id":"123","account_type":"Partner","notes":"Updated"}' \
@@ -159,7 +166,10 @@ Bulk flags: `--continue-on-error`, `--dry-run`, `--concurrency N`, `--skip-empty
 ### Delete Record
 ```bash
 crmservice delete accounts 123
+crmservice delete accounts 123 -o json
 ```
+
+`-o json` returns `{"deleted":true,"module":"accounts","id":"123"}`.
 
 ### Search Records
 ```bash
@@ -184,7 +194,17 @@ Use `--full` to receive the complete raw schema document returned by the backend
 ```bash
 crmservice filter reference
 crmservice filter validate '{"$and":[{"$eq":["account_type","Customer"]},{"$cts":["name","Acme"]}]}'
+
+# Validate syntax and check field names against cached module schema
+crmservice filter validate accounts '{"$eq":["account_type","Customer"]}'
 ```
+
+### Preflight Checks
+```bash
+crmservice doctor -o json
+```
+
+`doctor` reports version, config path, API URL reachability, token presence, authentication, cache writability, and an `ok` boolean. Exit code is non-zero when checks fail.
 
 ### Show Current User
 ```bash

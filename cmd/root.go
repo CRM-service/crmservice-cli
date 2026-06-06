@@ -72,6 +72,7 @@ func init() {
 	rootCmd.AddCommand(skillCmd())
 	rootCmd.AddCommand(modulesCmd())
 	rootCmd.AddCommand(whoamiCmd())
+	rootCmd.AddCommand(doctorCmd())
 }
 
 func LoadConfig() error {

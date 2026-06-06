@@ -75,9 +75,13 @@ func getURLFromFlagOrEnv(cmd *cobra.Command) string {
 }
 
 func getTokenFromFlagEnvConfig(cmd *cobra.Command) (string, error) {
-	token, err := cmd.Flags().GetString("token")
-	if err != nil {
-		return "", err
+	token := ""
+	if cmd.Flags().Lookup("token") != nil {
+		var err error
+		token, err = cmd.Flags().GetString("token")
+		if err != nil {
+			return "", err
+		}
 	}
 	if token == "" {
 		token = os.Getenv("CRMSERVICE_AUTH_TOKEN")
@@ -563,10 +567,6 @@ func createCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			module := args[0]
-			token, err := getRequiredTokenFromFlagEnvConfig(cmd)
-			if err != nil {
-				return err
-			}
 			outputFormat, err := getOutputFormatFromFlagConfig(cmd)
 			if err != nil {
 				return err
@@ -587,17 +587,34 @@ func createCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			dryRun, err := cmd.Flags().GetBool("dry-run")
+			if err != nil {
+				return err
+			}
+
+			input, err := getBodyInput(cmd, "", "create")
+			if err != nil {
+				return err
+			}
+
+			if dryRun {
+				body, err := singleRecordRequestBody(module, "", "create", input)
+				if err != nil {
+					return err
+				}
+				return outputDryRunRequest("create", module, "", body, outputFormat)
+			}
+
+			token, err := getRequiredTokenFromFlagEnvConfig(cmd)
+			if err != nil {
+				return err
+			}
 
 			url := getURLFromFlagOrEnv(cmd)
 
 			apiClient := api.NewClient(url, token)
 			apiClient.Verbose = verbose
 			apiClient.HTTPClient.Timeout = getTimeoutFromConfig()
-
-			input, err := getBodyInput(cmd, "", "create")
-			if err != nil {
-				return err
-			}
 
 			var resp *api.SingleResponse
 			if input.raw {
@@ -619,6 +636,7 @@ func createCmd() *cobra.Command {
 
 	cmd.Flags().StringArray("field", []string{}, "Field values to set")
 	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
+	cmd.Flags().Bool("dry-run", false, "Build the request body without sending it to the API")
 	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
 	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
 
@@ -633,10 +651,6 @@ func updateCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			module := args[0]
 			id := args[1]
-			token, err := getRequiredTokenFromFlagEnvConfig(cmd)
-			if err != nil {
-				return err
-			}
 			outputFormat, err := getOutputFormatFromFlagConfig(cmd)
 			if err != nil {
 				return err
@@ -657,17 +671,34 @@ func updateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			dryRun, err := cmd.Flags().GetBool("dry-run")
+			if err != nil {
+				return err
+			}
+
+			input, err := getBodyInput(cmd, id, "update")
+			if err != nil {
+				return err
+			}
+
+			if dryRun {
+				body, err := singleRecordRequestBody(module, id, "update", input)
+				if err != nil {
+					return err
+				}
+				return outputDryRunRequest("update", module, id, body, outputFormat)
+			}
+
+			token, err := getRequiredTokenFromFlagEnvConfig(cmd)
+			if err != nil {
+				return err
+			}
 
 			url := getURLFromFlagOrEnv(cmd)
 
 			apiClient := api.NewClient(url, token)
 			apiClient.Verbose = verbose
 			apiClient.HTTPClient.Timeout = getTimeoutFromConfig()
-
-			input, err := getBodyInput(cmd, id, "update")
-			if err != nil {
-				return err
-			}
 
 			var resp *api.SingleResponse
 			if input.raw {
@@ -689,6 +720,7 @@ func updateCmd() *cobra.Command {
 
 	cmd.Flags().StringArray("field", []string{}, "Field values to update")
 	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
+	cmd.Flags().Bool("dry-run", false, "Build the request body without sending it to the API")
 	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
 	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
 
@@ -707,6 +739,13 @@ func deleteCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			outputFormat, err := getOutputFormatFromFlagConfig(cmd)
+			if err != nil {
+				return err
+			}
+			if !ValidOutputFormat(outputFormat) {
+				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
+			}
 			verbose, err := cmd.Flags().GetInt("verbose")
 			if err != nil {
 				return err
@@ -723,11 +762,11 @@ func deleteCmd() *cobra.Command {
 				return output.ErrorResponse(errDelete)
 			}
 
-			fmt.Printf("Successfully deleted %s %s\n", module, id)
-			return nil
+			return outputDeleteResult(module, id, outputFormat)
 		},
 	}
 
+	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
 	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
 
 	return cmd
