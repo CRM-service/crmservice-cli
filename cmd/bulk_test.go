@@ -71,11 +71,17 @@ func TestBulkRequestBodyCreateDropsID(t *testing.T) {
 	if id != "297603" {
 		t.Errorf("id = %q, expected 297603", id)
 	}
-	data := body["data"].(map[string]interface{})
+	data, ok := body["data"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("body[data] = %T, expected map", body["data"])
+	}
 	if _, ok := data["id"]; ok {
 		t.Error("create body must not include client-provided id")
 	}
-	attrs := data["attributes"].(map[string]interface{})
+	attrs, ok := data["attributes"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("data[attributes] = %T, expected map", data["attributes"])
+	}
 	if attrs["name"] != "Acme" {
 		t.Errorf("attrs[name] = %v", attrs["name"])
 	}
@@ -104,7 +110,9 @@ func TestProcessBulkCreate(t *testing.T) {
 		bodies = append(bodies, body)
 		w.Header().Set("Content-Type", "application/vnd.api+json")
 		w.WriteHeader(http.StatusCreated)
-		_, _ = w.Write([]byte(`{"data":{"id":"new-id","type":"accounts","attributes":{"name":"Acme"}}}`))
+		if _, err := w.Write([]byte(`{"data":{"id":"new-id","type":"accounts","attributes":{"name":"Acme"}}}`)); err != nil {
+			t.Errorf("Write() returned error: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -116,7 +124,10 @@ func TestProcessBulkCreate(t *testing.T) {
 	if summary.Succeeded != 1 || len(results) != 1 {
 		t.Fatalf("summary/results = %+v/%d", summary, len(results))
 	}
-	data := bodies[0]["data"].(map[string]interface{})
+	data, ok := bodies[0]["data"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("bodies[0][data] = %T, expected map", bodies[0]["data"])
+	}
 	if _, ok := data["id"]; ok {
 		t.Error("POST body must not include source id")
 	}

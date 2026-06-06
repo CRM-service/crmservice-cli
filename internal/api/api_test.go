@@ -54,6 +54,7 @@ func TestNewListOptions(t *testing.T) {
 
 	if opts == nil {
 		t.Fatal("NewListOptions returned nil")
+		return
 	}
 	if opts.Page != 0 {
 		t.Errorf("Page = %d, expected 0", opts.Page)
@@ -820,6 +821,7 @@ func TestListOptions_Constructors(t *testing.T) {
 		opts := NewListOptions()
 		if opts == nil {
 			t.Fatal("NewListOptions returned nil")
+			return
 		}
 		if opts.Filter != nil {
 			t.Error("Filter should be nil initially")
