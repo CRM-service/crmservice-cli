@@ -262,7 +262,7 @@ func getSchemaBody(module, url, token string, verbose int, force bool) ([]byte, 
 		cachedBody, err := schemaCache.Load(module)
 		if err == nil {
 			if verbose >= 1 {
-				fmt.Printf("[CACHE] HIT %s\n", schemaCache.GetPath(module))
+				fmt.Fprintf(os.Stderr, "[CACHE] HIT %s\n", schemaCache.GetPath(module))
 			}
 			return cachedBody, nil
 		}
@@ -270,10 +270,10 @@ func getSchemaBody(module, url, token string, verbose int, force bool) ([]byte, 
 			return nil, fmt.Errorf("schema cache unavailable for %s and auto refresh is disabled: %w", module, err)
 		}
 		if verbose >= 1 {
-			fmt.Printf("[CACHE] MISS %s: %v\n", schemaCache.GetPath(module), err)
+			fmt.Fprintf(os.Stderr, "[CACHE] MISS %s: %v\n", schemaCache.GetPath(module), err)
 		}
 	} else if verbose >= 1 {
-		fmt.Printf("[CACHE] FORCE REFRESH %s\n", schemaCache.GetPath(module))
+		fmt.Fprintf(os.Stderr, "[CACHE] FORCE REFRESH %s\n", schemaCache.GetPath(module))
 	}
 
 	body, err := fetchSchemaBody(module, url, token, verbose)
@@ -311,7 +311,7 @@ func fetchSchemaBody(module, url, token string, verbose int) ([]byte, error) {
 	reqURL := strings.TrimSuffix(url, "/") + "/schema/" + module
 
 	if verbose >= 1 {
-		fmt.Printf("[REQUEST] GET %s\n", reqURL)
+		fmt.Fprintf(os.Stderr, "[REQUEST] GET %s\n", reqURL)
 	}
 
 	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
@@ -337,10 +337,10 @@ func fetchSchemaBody(module, url, token string, verbose int) ([]byte, error) {
 	}
 
 	if verbose >= 1 {
-		fmt.Printf("[RESPONSE] Status: %d\n", resp.StatusCode)
+		fmt.Fprintf(os.Stderr, "[RESPONSE] Status: %d\n", resp.StatusCode)
 	}
 	if verbose >= 2 {
-		fmt.Printf("[RESPONSE BODY]\n%s\n", string(body))
+		fmt.Fprintf(os.Stderr, "[RESPONSE BODY]\n%s\n", string(body))
 	}
 
 	if resp.StatusCode >= 400 {

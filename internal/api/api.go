@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 )
@@ -56,19 +57,19 @@ func (c *Client) requestHeaders(method string) map[string]string {
 func (c *Client) logRequest(method, path string) {
 	if c.Verbose >= 1 {
 		reqURL := c.BaseURL + "/" + strings.TrimPrefix(path, "/")
-		fmt.Printf("[REQUEST] %s %s\n", method, reqURL)
+		fmt.Fprintf(os.Stderr, "[REQUEST] %s %s\n", method, reqURL)
 	}
 	if c.Verbose >= 2 {
-		fmt.Printf("[REQUEST HEADERS] %v\n", c.requestHeaders(method))
+		fmt.Fprintf(os.Stderr, "[REQUEST HEADERS] %v\n", c.requestHeaders(method))
 	}
 }
 
 func (c *Client) logResponse(status int, body []byte) {
 	if c.Verbose >= 1 {
-		fmt.Printf("[RESPONSE] Status: %d\n", status)
+		fmt.Fprintf(os.Stderr, "[RESPONSE] Status: %d\n", status)
 	}
 	if c.Verbose >= 2 {
-		fmt.Printf("[RESPONSE BODY]\n%s\n", string(body))
+		fmt.Fprintf(os.Stderr, "[RESPONSE BODY]\n%s\n", string(body))
 	}
 }
 
