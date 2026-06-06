@@ -132,8 +132,7 @@ func fetchAllListPages(
 		if result.truncated {
 			break
 		}
-		if maxResults > 0 && len(result.data) >= maxResults && len(pageData) == pageSize {
-			result.truncated = true
+		if maxResults > 0 && len(result.data) >= maxResults {
 			break
 		}
 		if len(pageData) < pageSize {
@@ -143,7 +142,32 @@ func fetchAllListPages(
 		page++
 	}
 
+	if maxResults > 0 && len(result.data) == maxResults && !result.truncated {
+		hasMore, err := hasMoreListRecords(ctx, client, module, baseOpts, maxResults, verbose)
+		if err != nil {
+			return nil, err
+		}
+		result.truncated = hasMore
+	}
+
 	return result, nil
+}
+
+func hasMoreListRecords(ctx context.Context, client *api.Client, module string, baseOpts *api.ListOptions, offset int, verbose int) (bool, error) {
+	if verbose >= 1 {
+		fmt.Fprintf(os.Stderr, "[PAGE] Checking for records beyond max-results %d\n", offset)
+	}
+
+	opts := cloneListOptions(baseOpts)
+	opts.Page = 0
+	opts.PageSize = 1
+	opts.SetOffset(offset)
+
+	resp, err := client.List(ctx, module, opts)
+	if err != nil {
+		return false, err
+	}
+	return len(toInterfaceSlice(resp.Data)) > 0, nil
 }
 
 func cloneListOptions(opts *api.ListOptions) *api.ListOptions {

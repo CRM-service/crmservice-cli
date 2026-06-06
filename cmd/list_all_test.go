@@ -260,3 +260,60 @@ func TestDedupeIncludedResources(t *testing.T) {
 		t.Errorf("first duplicate should be retained, got attributes: %v", attrs)
 	}
 }
+
+func TestFetchAllListPagesExactMaxChecksForMoreRecords(t *testing.T) {
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		var data []map[string]interface{}
+		if r.URL.Query().Get("offset") == "2" {
+			data = []map[string]interface{}{{"id": "3", "type": "accounts", "attributes": map[string]interface{}{"name": "C"}}}
+		} else {
+			data = []map[string]interface{}{
+				{"id": "1", "type": "accounts", "attributes": map[string]interface{}{"name": "A"}},
+				{"id": "2", "type": "accounts", "attributes": map[string]interface{}{"name": "B"}},
+			}
+		}
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{"data": data}); err != nil {
+			t.Fatalf("Encode() error: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "token")
+	result, err := fetchAllListPages(context.Background(), client, "accounts", api.NewListOptions(), 2, 2, 0, false)
+	if err != nil {
+		t.Fatalf("fetchAllListPages() error: %v", err)
+	}
+	if !result.truncated {
+		t.Error("truncated = false, want true")
+	}
+	if requests != 2 {
+		t.Errorf("requests = %d, want 2", requests)
+	}
+}
+
+func TestFetchAllListPagesExactMaxNoTruncationWhenNoMoreRecords(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		data := []map[string]interface{}{}
+		if r.URL.Query().Get("offset") == "" {
+			data = []map[string]interface{}{
+				{"id": "1", "type": "accounts", "attributes": map[string]interface{}{"name": "A"}},
+				{"id": "2", "type": "accounts", "attributes": map[string]interface{}{"name": "B"}},
+			}
+		}
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{"data": data}); err != nil {
+			t.Fatalf("Encode() error: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "token")
+	result, err := fetchAllListPages(context.Background(), client, "accounts", api.NewListOptions(), 2, 2, 0, false)
+	if err != nil {
+		t.Fatalf("fetchAllListPages() error: %v", err)
+	}
+	if result.truncated {
+		t.Error("truncated = true, want false")
+	}
+}
