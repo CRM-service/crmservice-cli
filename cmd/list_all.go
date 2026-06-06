@@ -15,6 +15,8 @@ import (
 const listAllDefaultPageSize = 100
 
 func addListSearchFlags(cmd *cobra.Command) {
+	cmd.SilenceErrors = true
+	cmd.SilenceUsage = true
 	cmd.Flags().Int("page-size", 20, "Items per page (default 100 with --all)")
 	cmd.Flags().String("include", "", "Comma-separated relation names to include")
 	cmd.Flags().String("fields", "", "Comma-separated field names to include")

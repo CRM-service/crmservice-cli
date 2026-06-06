@@ -17,6 +17,8 @@ func countCmd() *cobra.Command {
 		Args:  cobra.RangeArgs(1, 2),
 		RunE:  runCountCommand,
 	}
+	cmd.SilenceErrors = true
+	cmd.SilenceUsage = true
 
 	cmd.Flags().String("filter", "", "Filter in JSON format")
 	cmd.Flags().String("include", "", "Comma-separated relation names required by the filter")

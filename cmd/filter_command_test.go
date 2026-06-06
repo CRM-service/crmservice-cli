@@ -77,6 +77,26 @@ func TestRunListCommandRejectsInvalidFilterSyntax(t *testing.T) {
 	}
 }
 
+func TestListCommandFilterValidationOmitsUsage(t *testing.T) {
+	setupFilterCommandTestConfig(t)
+
+	cmd := listCmd()
+	cmd.SetContext(context.Background())
+	cmd.SetArgs([]string{"accounts", "--filter", `{"$unknown":["name","Acme"]}`, "-o", "json"})
+
+	stderr := captureStderr(t, func() {
+		if err := cmd.Execute(); err == nil {
+			t.Fatal("Execute() error = nil, expected filter validation error")
+		}
+	})
+	if strings.Contains(stderr, "Usage:") {
+		t.Fatalf("stderr contains usage: %q", stderr)
+	}
+	if strings.Contains(stderr, "Flags:") {
+		t.Fatalf("stderr contains flags help: %q", stderr)
+	}
+}
+
 func TestRunCountCommandRejectsInvalidFilterSyntax(t *testing.T) {
 	countRequests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
