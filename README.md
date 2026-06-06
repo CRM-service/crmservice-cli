@@ -155,15 +155,15 @@ echo '{"data":{"type":"accounts","attributes":{"name":"Test Corp","email":"test@
 
 ```bash
 # Copy accounts between CRM instances
-crmservice --url a.crmservice.fi list accounts -o jsonl \
+crmservice --url a.crmservice.fi list accounts --all --max-results 500 -o jsonl \
   | crmservice --url b.crmservice.fi bulk-create accounts
 
 # Preview JSON:API request bodies without sending them
-crmservice list accounts -o jsonl \
+crmservice list accounts --all --max-results 500 -o jsonl \
   | crmservice bulk-create accounts --dry-run -o jsonl
 
 # Run with concurrency and continue after individual record errors
-crmservice list accounts -o jsonl \
+crmservice list accounts --all --max-results 500 -o jsonl \
   | crmservice bulk-create accounts --concurrency 4 --continue-on-error --summary -o json
 ```
 
@@ -186,7 +186,7 @@ echo '{"data":{"type":"accounts","id":"<id>","attributes":{"name":"New Name"}}}'
 `bulk-update` reads flat JSONL records or a JSON array from stdin. Each record must include `id`; `id` is used as the target record ID and removed from the attributes sent to the API.
 
 ```bash
-crmservice list accounts -o jsonl \
+crmservice list accounts --all --max-results 500 -o jsonl \
   | jq 'select(.account_type == "Prospect") | .account_type = "Customer"' \
   | crmservice bulk-update accounts --concurrency 4 --continue-on-error
 ```

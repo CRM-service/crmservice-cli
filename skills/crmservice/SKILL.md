@@ -140,11 +140,11 @@ printf '{"data":{"type":"accounts","attributes":{"name":"Acme Corp","account_typ
 ### Bulk Create Records
 ```bash
 # Copy accounts between CRM instances. Source id is ignored on create.
-crmservice --url a.crmservice.fi list accounts -o jsonl \
+crmservice --url a.crmservice.fi list accounts --all --max-results 500 -o jsonl \
   | crmservice --url b.crmservice.fi bulk-create accounts
 
 # Preview request bodies without sending them
-crmservice list accounts -o jsonl \
+crmservice list accounts --all --max-results 500 -o jsonl \
   | crmservice bulk-create accounts --dry-run -o jsonl
 ```
 
@@ -167,7 +167,7 @@ printf '{"data":{"type":"accounts","id":"123","attributes":{"account_type":"Part
 ### Bulk Update Records
 ```bash
 # Each input record must include id. id selects the record and is not sent as an attribute.
-crmservice list accounts -o jsonl \
+crmservice list accounts --all --max-results 500 -o jsonl \
   | jq 'select(.account_type == "Prospect") | .account_type = "Customer"' \
   | crmservice bulk-update accounts --concurrency 4 --continue-on-error
 ```
@@ -179,8 +179,8 @@ filter='{"$eq":["account_type","Prospect"]}'
 
 crmservice filter validate "$filter"
 
-crmservice search accounts "$filter" --fields "id,account_type" -o json \
-  | jq -c '.[] | {id, account_type:"Customer"}' \
+crmservice search accounts "$filter" --all --max-results 500 --fields "id,account_type" -o jsonl \
+  | jq -c '{id, account_type:"Customer"}' \
   | crmservice bulk-update accounts --summary --concurrency 4
 ```
 
@@ -429,8 +429,8 @@ printf '%s\n' '{"name":"Acme Corp","account_type":"Customer"}' \
   | crmservice bulk-create accounts --summary -o json
 
 # 6. For updates, require id and dry-run first
-crmservice search accounts '{"$eq":["name","Acme Corp"]}' -o jsonl \
-  | jq -c '.account_type = "Customer"' \
+crmservice search accounts '{"$eq":["name","Acme Corp"]}' --all --max-results 500 -o jsonl \
+  | jq -c '{id, account_type: "Customer"}' \
   | crmservice bulk-update accounts --dry-run -o jsonl
 ```
 
@@ -442,29 +442,29 @@ Use `-o jsonl` when streaming records to `jq`; use `-o json` when you need an ar
 
 ```bash
 # Pick only a few fields from JSONL output
-crmservice list accounts -o jsonl \
+crmservice list accounts --all --max-results 500 -o jsonl \
   | jq -c '{id, name, entity_no, account_type}'
 
 # Select records with missing/blank values
-crmservice list contacts -o jsonl \
+crmservice list contacts --all --max-results 500 -o jsonl \
   | jq -c 'select((.email // "") == "") | {id, first_name, last_name}'
 
 # Build a safe bulk-update stream: preserve id, modify one attribute
-crmservice search accounts '{"$eq":["account_type","Prospect"]}' -o jsonl \
+crmservice search accounts '{"$eq":["account_type","Prospect"]}' --all --max-results 500 -o jsonl \
   | jq -c '{id, account_type: "Customer"}' \
   | crmservice bulk-update accounts --dry-run -o jsonl
 
 # Remove read-only/system fields before bulk-create into another instance
-crmservice --url a.crmservice.fi list accounts -o jsonl \
+crmservice --url a.crmservice.fi list accounts --all --max-results 500 -o jsonl \
   | jq -c 'del(.id, .created_at, .updated_at)' \
   | crmservice --url b.crmservice.fi bulk-create accounts --dry-run -o jsonl
 
-# Convert array JSON to JSONL
-crmservice list accounts -o json \
+# Convert array JSON to JSONL (use --all when exporting more than one page)
+crmservice list accounts --all --max-results 500 -o json \
   | jq -c '.[]'
 
 # Convert JSONL to an array for aggregate jq operations
-crmservice list accounts -o jsonl \
+crmservice list accounts --all --max-results 500 -o jsonl \
   | jq -s 'group_by(.account_type) | map({account_type: .[0].account_type, count: length})'
 
 # Extract total from a full JSON:API response
