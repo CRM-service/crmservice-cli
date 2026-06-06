@@ -735,3 +735,55 @@ func TestErrorResponse(t *testing.T) {
 		}
 	})
 }
+
+func TestReadStdinBodyInputAcceptsFlatCreate(t *testing.T) {
+	stdin := pipeWithContent(t, `{"id":"source-id","name":"Test Corp","account_type":"Customer"}`)
+
+	input, ok, err := readStdinBodyInput(stdin, "", "create")
+	if err != nil {
+		t.Fatalf("readStdinBodyInput() returned error: %v", err)
+	}
+	if !ok {
+		t.Fatal("readStdinBodyInput() ok = false, expected true")
+	}
+	if input.raw {
+		t.Fatal("flat input should not be raw JSON:API")
+	}
+	attrs, ok := input.body.(map[string]interface{})
+	if !ok {
+		t.Fatalf("input.body = %T, expected map", input.body)
+	}
+	if _, ok := attrs["id"]; ok {
+		t.Error("flat create attributes should not include id")
+	}
+	if attrs["name"] != "Test Corp" {
+		t.Errorf("attrs[name] = %v", attrs["name"])
+	}
+}
+
+func TestReadStdinBodyInputValidatesFlatUpdateID(t *testing.T) {
+	stdin := pipeWithContent(t, `{"id":"123","name":"Test Corp"}`)
+
+	input, ok, err := readStdinBodyInput(stdin, "456", "update")
+	if !ok {
+		t.Fatal("readStdinBodyInput() ok = false, expected true")
+	}
+	if err == nil {
+		t.Fatal("readStdinBodyInput() error = nil, expected id mismatch error")
+	}
+	if input != nil {
+		t.Fatalf("input = %#v, expected nil", input)
+	}
+}
+
+func TestReadStdinBodyInputValidatesJSONAPIUpdateID(t *testing.T) {
+	stdin := pipeWithContent(t, `{"data":{"type":"accounts","id":"123","attributes":{"name":"Test Corp"}}}`)
+
+	_, ok, err := readStdinBodyInput(stdin, "456", "update")
+	if !ok {
+		t.Fatal("readStdinBodyInput() ok = false, expected true")
+	}
+	if err == nil {
+		t.Fatal("readStdinBodyInput() error = nil, expected id mismatch error")
+	}
+}

@@ -145,21 +145,21 @@ type bodyInput struct {
 	raw  bool
 }
 
-func getBodyInput(cmd *cobra.Command) (*bodyInput, error) {
+func getBodyInput(cmd *cobra.Command, id, operation string) (*bodyInput, error) {
 	fields, err := cmd.Flags().GetStringArray("field")
 	if err != nil {
 		return nil, err
 	}
 
-	stdinBody, hasStdinBody, err := readStdinJSONAPIRequest(os.Stdin)
+	stdinBody, hasStdinBody, err := readStdinBodyInput(os.Stdin, id, operation)
 	if err != nil {
 		return nil, err
 	}
 	if hasStdinBody {
 		if len(fields) > 0 {
-			return nil, fmt.Errorf("cannot use --field with JSON:API request body from stdin")
+			return nil, fmt.Errorf("cannot use --field with request body from stdin")
 		}
-		return &bodyInput{body: stdinBody, raw: true}, nil
+		return stdinBody, nil
 	}
 
 	data := make(map[string]interface{})
@@ -172,7 +172,7 @@ func getBodyInput(cmd *cobra.Command) (*bodyInput, error) {
 	return &bodyInput{body: data}, nil
 }
 
-func readStdinJSONAPIRequest(stdin *os.File) (map[string]interface{}, bool, error) {
+func readStdinBodyInput(stdin *os.File, id, operation string) (*bodyInput, bool, error) {
 	info, err := stdin.Stat()
 	if err != nil {
 		return nil, false, err
@@ -191,16 +191,59 @@ func readStdinJSONAPIRequest(stdin *os.File) (map[string]interface{}, bool, erro
 
 	var request map[string]interface{}
 	if err := json.Unmarshal(body, &request); err != nil {
-		return nil, true, fmt.Errorf("invalid JSON:API request body from stdin: %w", err)
-	}
-	data, ok := request["data"]
-	if !ok {
-		return nil, true, fmt.Errorf("invalid JSON:API request body from stdin: missing data member")
-	}
-	if _, ok := data.(map[string]interface{}); !ok {
-		return nil, true, fmt.Errorf("invalid JSON:API request body from stdin: data must be an object")
+		return nil, true, fmt.Errorf("invalid request body from stdin: %w", err)
 	}
 
+	if _, ok := request["data"]; ok {
+		if err := validateJSONAPIRequestBody(request, id, operation); err != nil {
+			return nil, true, err
+		}
+		return &bodyInput{body: request, raw: true}, true, nil
+	}
+
+	flatBody, err := flatRecordAttributes(request, id, operation)
+	if err != nil {
+		return nil, true, err
+	}
+	return &bodyInput{body: flatBody}, true, nil
+}
+
+func validateJSONAPIRequestBody(request map[string]interface{}, id, operation string) error {
+	data, ok := request["data"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("invalid JSON:API request body from stdin: data must be an object")
+	}
+	if operation == "update" {
+		if bodyID, ok := data["id"]; ok && fmt.Sprintf("%v", bodyID) != id {
+			return fmt.Errorf("request body id %q does not match argument id %q", fmt.Sprintf("%v", bodyID), id)
+		}
+	}
+	return nil
+}
+
+func flatRecordAttributes(record map[string]interface{}, id, operation string) (map[string]interface{}, error) {
+	attrs := make(map[string]interface{}, len(record))
+	for key, value := range record {
+		if key == "id" {
+			if operation == "update" && value != nil && fmt.Sprintf("%v", value) != id {
+				return nil, fmt.Errorf("request body id %q does not match argument id %q", fmt.Sprintf("%v", value), id)
+			}
+			continue
+		}
+		attrs[key] = value
+	}
+	return attrs, nil
+}
+
+func readStdinJSONAPIRequest(stdin *os.File) (map[string]interface{}, bool, error) {
+	input, ok, err := readStdinBodyInput(stdin, "", "create")
+	if !ok || err != nil {
+		return nil, ok, err
+	}
+	request, ok := input.body.(map[string]interface{})
+	if !ok || !input.raw {
+		return nil, true, fmt.Errorf("invalid JSON:API request body from stdin: missing data member")
+	}
 	return request, true, nil
 }
 
@@ -551,7 +594,7 @@ func createCmd() *cobra.Command {
 			apiClient.Verbose = verbose
 			apiClient.HTTPClient.Timeout = getTimeoutFromConfig()
 
-			input, err := getBodyInput(cmd)
+			input, err := getBodyInput(cmd, "", "create")
 			if err != nil {
 				return err
 			}
@@ -621,7 +664,7 @@ func updateCmd() *cobra.Command {
 			apiClient.Verbose = verbose
 			apiClient.HTTPClient.Timeout = getTimeoutFromConfig()
 
-			input, err := getBodyInput(cmd)
+			input, err := getBodyInput(cmd, id, "update")
 			if err != nil {
 				return err
 			}
