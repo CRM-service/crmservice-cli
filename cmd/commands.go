@@ -49,7 +49,7 @@ func getAPIURL() string {
 		url = cfg.API.URL
 	}
 	if url == "" {
-		fmt.Fprintf(os.Stderr, "Error: API URL not provided. Set CRMSERVICE_API_URL environment variable, config api.url, or use --url flag\n")
+		output.EmitError(fmt.Errorf("API URL not provided. Set CRMSERVICE_API_URL environment variable, config api.url, or use --url flag"))
 		os.Exit(1)
 	}
 
@@ -111,6 +111,7 @@ func getOutputFormatFromFlagConfig(cmd *cobra.Command) (string, error) {
 	if !cmd.Flags().Changed("output") && cfg != nil && cfg.Output.Format != "" {
 		outputFormat = cfg.Output.Format
 	}
+	output.SetActiveFormat(outputFormat)
 	return outputFormat, nil
 }
 

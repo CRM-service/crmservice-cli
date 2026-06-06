@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -678,6 +679,7 @@ func TestRequiredTokenValidation(t *testing.T) {
 
 func TestErrorResponse(t *testing.T) {
 	t.Run("API error", func(t *testing.T) {
+		output.SetActiveFormat("table")
 		apiErr := &api.Error{
 			Status:  404,
 			Body:    []byte(`{"error":"Not found"}`),
@@ -693,8 +695,8 @@ func TestErrorResponse(t *testing.T) {
 		defer func() { os.Stderr = origStderr }()
 
 		err = output.ErrorResponse(apiErr)
-		if err != apiErr {
-			t.Error("ErrorResponse should return the same error")
+		if !errors.Is(err, apiErr) {
+			t.Error("ErrorResponse should wrap the same error")
 		}
 
 		w.Close()
@@ -709,6 +711,7 @@ func TestErrorResponse(t *testing.T) {
 	})
 
 	t.Run("regular error", func(t *testing.T) {
+		output.SetActiveFormat("table")
 		origStderr := os.Stderr
 		r, w, err := os.Pipe()
 		if err != nil {
@@ -720,8 +723,8 @@ func TestErrorResponse(t *testing.T) {
 		regErr := fmt.Errorf("test error")
 
 		err = output.ErrorResponse(regErr)
-		if err != regErr {
-			t.Error("ErrorResponse should return the same error")
+		if !errors.Is(err, regErr) {
+			t.Error("ErrorResponse should wrap the same error")
 		}
 
 		w.Close()

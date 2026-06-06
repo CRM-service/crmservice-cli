@@ -6,8 +6,57 @@ import (
 	"fmt"
 	"os"
 
+	"crmservice/internal/api"
+
 	"gopkg.in/yaml.v3"
 )
+
+var activeFormat = "table"
+
+type ReportedError struct {
+	Err error
+}
+
+func (e *ReportedError) Error() string {
+	if e == nil || e.Err == nil {
+		return ""
+	}
+	return e.Err.Error()
+}
+
+func (e *ReportedError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
+}
+
+func SetActiveFormat(format string) {
+	if ValidOutputFormat(format) {
+		activeFormat = format
+	}
+}
+
+func EmitError(err error) {
+	if err == nil {
+		return
+	}
+	if writeErr := WriteStderr(activeFormat, errorPayload(err)); writeErr != nil && activeFormat == "table" {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+	}
+}
+
+func errorPayload(err error) map[string]interface{} {
+	payload := map[string]interface{}{
+		"error":   true,
+		"message": err.Error(),
+	}
+	if apiErr, ok := err.(*api.Error); ok {
+		payload["status"] = apiErr.Status
+		payload["message"] = apiErr.Message
+	}
+	return payload
+}
 
 func WriteStderr(format string, data interface{}) error {
 	switch format {
@@ -41,6 +90,24 @@ func writeStderrTable(data interface{}) error {
 		}
 	}
 	return nil
+}
+
+func StderrError(format string, err error) error {
+	if err == nil {
+		return nil
+	}
+	if format == "table" {
+		if apiErr, ok := err.(*api.Error); ok {
+			fmt.Fprintf(os.Stderr, "Error: %s\n", apiErr.Message)
+			return err
+		}
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		return err
+	}
+	if writeErr := WriteStderr(format, errorPayload(err)); writeErr != nil {
+		return writeErr
+	}
+	return err
 }
 
 func writeStderrCSV(data interface{}) error {

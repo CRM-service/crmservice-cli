@@ -1,10 +1,11 @@
 package cmd
 
 import (
-	"fmt"
+	"errors"
 	"os"
 
 	"crmservice/internal/config"
+	"crmservice/internal/output"
 
 	"github.com/spf13/cobra"
 )
@@ -15,16 +16,25 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:               "crmservice",
-	Short:             "CRM-service CLI API client",
-	Long:              `CRM-service CLI - A command-line tool for interacting with the CRM-service REST API.`,
-	Version:           versionString(),
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error { return initConfig(cmd) },
+	Use:     "crmservice",
+	Short:   "CRM-service CLI API client",
+	Long:    `CRM-service CLI - A command-line tool for interacting with the CRM-service REST API.`,
+	Version: versionString(),
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		if err := initConfig(cmd); err != nil {
+			return err
+		}
+		setActiveOutputFormat(cmd)
+		return nil
+	},
 }
 
 func Execute() error {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		var reported *output.ReportedError
+		if !errors.As(err, &reported) {
+			output.EmitError(err)
+		}
 		os.Exit(1)
 	}
 	return nil

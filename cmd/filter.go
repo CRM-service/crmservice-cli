@@ -128,9 +128,9 @@ func filterCmd() *cobra.Command {
 			if module == "" {
 				if err := validateFilterJSON(filterJSON); err != nil {
 					if emitErr := outputFilterValidateError(outputFormat, filterValidateFailure("", filterJSON, false, err)); emitErr != nil {
-						return emitErr
+						return &output.ReportedError{Err: emitErr}
 					}
-					return err
+					return &output.ReportedError{Err: err}
 				}
 				return outputFilterValidate(outputFormat, filterValidateSuccess("", filterJSON, false))
 			}
@@ -146,9 +146,9 @@ func filterCmd() *cobra.Command {
 			}
 			if err := validateFilterJSONAgainstModule(module, filterJSON, url, token, verbose); err != nil {
 				if emitErr := outputFilterValidateError(outputFormat, filterValidateFailure(module, filterJSON, true, err)); emitErr != nil {
-					return emitErr
+					return &output.ReportedError{Err: emitErr}
 				}
-				return err
+				return &output.ReportedError{Err: err}
 			}
 			return outputFilterValidate(outputFormat, filterValidateSuccess(module, filterJSON, true))
 		},
