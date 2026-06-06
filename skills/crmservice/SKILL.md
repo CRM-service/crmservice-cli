@@ -82,6 +82,7 @@ crmservice list accounts --full -o json | jq '.data | length'
 - `--page` and `--offset` cannot be used with `--all`
 - Default `--page-size` with `--all` is 100 (unless you set `--page-size` explicitly)
 - `--full` is supported with `--all`
+- With `-o jsonl`, `--all` streams one record per line as each page is fetched (lower memory use than buffering all pages)
 - When the cap is hit, a truncation status is printed to **stderr** in the requested output format
 - Use `--verbose 1` to log page progress to stderr
 

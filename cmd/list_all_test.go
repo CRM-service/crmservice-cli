@@ -188,6 +188,50 @@ func TestRunListAllOutputsTruncationStatus(t *testing.T) {
 	}
 }
 
+func TestRunListAllStreamsJSONL(t *testing.T) {
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		page := r.URL.Query().Get("page[number]")
+		var data []map[string]interface{}
+		switch page {
+		case "1":
+			data = []map[string]interface{}{
+				{"id": "1", "type": "accounts", "attributes": map[string]interface{}{"name": "A"}},
+				{"id": "2", "type": "accounts", "attributes": map[string]interface{}{"name": "B"}},
+			}
+		case "2":
+			data = []map[string]interface{}{
+				{"id": "3", "type": "accounts", "attributes": map[string]interface{}{"name": "C"}},
+			}
+		default:
+			data = []map[string]interface{}{}
+		}
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{"data": data}); err != nil {
+			t.Fatalf("Encode() error: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	cmd := listCmd()
+	cmd.SetContext(context.Background())
+	client := api.NewClient(server.URL+"/api/v1", "token")
+
+	stdout := captureStdout(t, func() {
+		if err := runListAll(cmd, client, "accounts", api.NewListOptions(), 2, 0, 0, false, "jsonl", nil); err != nil {
+			t.Fatalf("runListAll() error: %v", err)
+		}
+	})
+
+	lines := strings.Split(strings.TrimSpace(stdout), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("stdout lines = %d, want 3: %q", len(lines), stdout)
+	}
+	if requests != 2 {
+		t.Errorf("requests = %d, want 2", requests)
+	}
+}
+
 func captureStderr(t *testing.T, fn func()) string {
 	t.Helper()
 	origStderr := os.Stderr

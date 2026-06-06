@@ -79,18 +79,34 @@ func outputJSONL(v interface{}, opts Options) error {
 		fmt.Println("No data found")
 		return nil
 	}
+	return StreamJSONLRecords(data, opts)
+}
+
+func StreamJSONLRecords(data interface{}, opts Options) error {
+	if data == nil {
+		return nil
+	}
 
 	encoder := json.NewEncoder(os.Stdout)
 	dataVal := reflect.ValueOf(data)
 	if dataVal.Kind() == reflect.Slice {
 		for i := 0; i < dataVal.Len(); i++ {
-			if err := encoder.Encode(dataVal.Index(i).Interface()); err != nil {
+			record := dataVal.Index(i).Interface()
+			if !opts.Full {
+				record = flattenResource(record)
+			}
+			if err := encoder.Encode(record); err != nil {
 				return err
 			}
 		}
 		return nil
 	}
-	return encoder.Encode(data)
+
+	record := data
+	if !opts.Full {
+		record = flattenResource(data)
+	}
+	return encoder.Encode(record)
 }
 
 func cleanJSONLRecords(v interface{}, opts Options) interface{} {
