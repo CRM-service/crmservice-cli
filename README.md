@@ -350,16 +350,18 @@ crmservice skill path
 # Review the bundled skill content
 crmservice skill print
 
-# Install or update the skill in ~/.agents/skills/crmservice/SKILL.md
+# Install or update the skill tree in ~/.agents/skills/crmservice/
 crmservice skill install
 
 # Check whether the installed skill matches the bundled version
 crmservice skill install --check -o json
 ```
 
-`skill install` installs the latest bundled version of the skill.
+The bundled skill is a multi-file tree: `SKILL.md` (entry point) plus `references/*.md` topic guides.
 
-`skill install --check` compares the installed `SKILL.md` with the bundled copy (SHA-256). It prints the result to **stdout** only in the requested output format (`-o json` recommended). Exit code `0` means up to date; non-zero means missing or stale. The stdout payload includes `status` (`up_to_date`, `stale`, or `missing`), `up_to_date`, `installed`, `path`, `bundled_hash`, `installed_hash`, and `message`. Run `crmservice skill install` when `--check` reports `stale` or `missing`.
+`skill install` copies the full tree to `~/.agents/skills/crmservice/`. `skill print` shows the entry-point `SKILL.md` only.
+
+`skill install --check` compares the installed skill tree with the bundled copy (manifest SHA-256). It prints the result to **stdout** only in the requested output format (`-o json` recommended). Exit code `0` means up to date; non-zero means missing or stale. The stdout payload includes `status` (`up_to_date`, `stale`, or `missing`), `up_to_date`, `installed`, `files_checked`, `path`, `bundled_hash`, `installed_hash`, and `message`. Run `crmservice skill install` when `--check` reports `stale` or `missing`.
 
 ## JSON:API Compliance
 

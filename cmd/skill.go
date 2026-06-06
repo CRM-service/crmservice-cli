@@ -1,11 +1,8 @@
 package cmd
 
 import (
-	"crypto/sha256"
 	"encoding/csv"
-	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -41,7 +38,7 @@ func skillCmd() *cobra.Command {
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "print",
-		Short: "Print the bundled crmservice Agent Skill",
+		Short: "Print the bundled crmservice Agent Skill entry point",
 		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Fprint(cmd.OutOrStdout(), skills.CRMServiceSkill)
@@ -74,17 +71,18 @@ func skillInstallCmd() *cobra.Command {
 				if !ValidOutputFormat(outputFormat) {
 					return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
 				}
-				result, err := checkInstalledSkill(path, skills.CRMServiceSkill)
+				result, err := skills.CheckInstalledSkillBundle(path)
 				if err != nil {
 					return err
 				}
-				return outputSkillCheckResult(outputFormat, result)
+				return outputSkillCheckResult(outputFormat, skillCheckResultToMap(result))
 			}
 
-			if err := installSkill(path, skills.CRMServiceSkill); err != nil {
+			destDir := filepath.Dir(path)
+			if err := skills.InstallSkillBundle(destDir); err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Installed crmservice skill to %s\n", path)
+			fmt.Fprintf(cmd.OutOrStdout(), "Installed crmservice skill to %s\n", destDir)
 			return nil
 		},
 	}
@@ -109,53 +107,18 @@ func skillInstallPath(home string) string {
 	return filepath.Join(home, ".agents", "skills", "crmservice", "SKILL.md")
 }
 
-func installSkill(path, content string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
+func skillCheckResultToMap(result skills.SkillCheckResult) map[string]interface{} {
+	data := map[string]interface{}{
+		"path":           result.Path,
+		"bundled_hash":   result.BundledHash,
+		"installed":      result.Installed,
+		"up_to_date":     result.UpToDate,
+		"installed_hash": result.InstalledHash,
+		"files_checked":  result.FilesChecked,
+		"status":         result.Status,
+		"message":        result.Message,
 	}
-	// #nosec G306 -- Skill content is non-secret documentation intended to be readable.
-	return os.WriteFile(path, []byte(content), 0o644)
-}
-
-func skillContentHash(content string) string {
-	sum := sha256.Sum256([]byte(content))
-	return hex.EncodeToString(sum[:])
-}
-
-func checkInstalledSkill(path, bundled string) (map[string]interface{}, error) {
-	bundledHash := skillContentHash(bundled)
-	result := map[string]interface{}{
-		"path":           path,
-		"bundled_hash":   bundledHash,
-		"installed":      false,
-		"up_to_date":     false,
-		"installed_hash": "",
-	}
-
-	content, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		result["status"] = "missing"
-		result["message"] = "skill not installed; run crmservice skill install"
-		return result, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	installedHash := skillContentHash(string(content))
-	result["installed"] = true
-	result["installed_hash"] = installedHash
-
-	if string(content) == bundled {
-		result["status"] = "up_to_date"
-		result["up_to_date"] = true
-		result["message"] = "installed skill matches bundled skill"
-		return result, nil
-	}
-
-	result["status"] = "stale"
-	result["message"] = "installed skill differs from bundled skill; run crmservice skill install"
-	return result, nil
+	return data
 }
 
 func outputSkillCheckResult(format string, data map[string]interface{}) error {
@@ -173,9 +136,9 @@ func outputSkillCheckResult(format string, data map[string]interface{}) error {
 }
 
 func outputSkillCheck(format string, data map[string]interface{}) error {
+	keys := []string{"status", "up_to_date", "installed", "files_checked", "path", "bundled_hash", "installed_hash", "message"}
 	switch format {
 	case "table":
-		keys := []string{"status", "up_to_date", "installed", "path", "bundled_hash", "installed_hash", "message"}
 		for _, key := range keys {
 			if value, ok := data[key]; ok && value != nil && value != "" {
 				fmt.Printf("%-20s | %v\n", key, value)
@@ -183,13 +146,12 @@ func outputSkillCheck(format string, data map[string]interface{}) error {
 		}
 		return nil
 	case "csv":
-		columns := []string{"status", "up_to_date", "installed", "path", "bundled_hash", "installed_hash", "message"}
 		writer := csv.NewWriter(os.Stdout)
-		if err := writer.Write(columns); err != nil {
+		if err := writer.Write(keys); err != nil {
 			return err
 		}
-		row := make([]string, len(columns))
-		for i, column := range columns {
+		row := make([]string, len(keys))
+		for i, column := range keys {
 			if value, ok := data[column]; ok && value != nil {
 				row[i] = fmt.Sprintf("%v", value)
 			}

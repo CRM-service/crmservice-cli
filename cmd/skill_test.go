@@ -31,25 +31,29 @@ func TestSkillPrintReturnsNonEmptyContent(t *testing.T) {
 	if strings.TrimSpace(out.String()) == "" {
 		t.Fatal("skill print returned empty content")
 	}
-	if !strings.Contains(out.String(), "# crmservice CLI Tool Skill") {
+	if !strings.Contains(out.String(), "# crmservice CLI") {
 		t.Errorf("skill print did not include expected skill heading")
 	}
 }
 
-func TestInstallSkillCreatesParentDirectoriesAndWritesSkill(t *testing.T) {
+func TestInstallSkillBundleCreatesTree(t *testing.T) {
 	tmpDir := t.TempDir()
-	path := filepath.Join(tmpDir, ".agents", "skills", "crmservice", "SKILL.md")
+	destDir := filepath.Join(tmpDir, ".agents", "skills", "crmservice")
 
-	if err := installSkill(path, skills.CRMServiceSkill); err != nil {
-		t.Fatalf("installSkill() returned error: %v", err)
+	if err := skills.InstallSkillBundle(destDir); err != nil {
+		t.Fatalf("InstallSkillBundle() returned error: %v", err)
 	}
 
-	content, err := os.ReadFile(path)
+	content, err := os.ReadFile(filepath.Join(destDir, "SKILL.md"))
 	if err != nil {
 		t.Fatalf("os.ReadFile() returned error: %v", err)
 	}
 	if string(content) != skills.CRMServiceSkill {
-		t.Error("installed skill content does not match embedded skill content")
+		t.Error("installed SKILL.md does not match embedded entry point")
+	}
+
+	if _, err := os.Stat(filepath.Join(destDir, "references", "filters.md")); err != nil {
+		t.Fatalf("references/filters.md missing: %v", err)
 	}
 }
 
@@ -78,68 +82,6 @@ func TestRootCommandIncludesSkillCommand(t *testing.T) {
 	t.Fatal("root command does not include skill command")
 }
 
-func TestCheckInstalledSkillMissing(t *testing.T) {
-	tmpDir := t.TempDir()
-	path := filepath.Join(tmpDir, "SKILL.md")
-
-	result, err := checkInstalledSkill(path, skills.CRMServiceSkill)
-	if err != nil {
-		t.Fatalf("checkInstalledSkill() returned error: %v", err)
-	}
-	if result["status"] != "missing" {
-		t.Errorf("status = %v, expected missing", result["status"])
-	}
-	if result["up_to_date"] != false {
-		t.Errorf("up_to_date = %v, expected false", result["up_to_date"])
-	}
-}
-
-func TestCheckInstalledSkillUpToDate(t *testing.T) {
-	tmpDir := t.TempDir()
-	path := filepath.Join(tmpDir, "SKILL.md")
-	// #nosec G306 -- Test fixture content is non-secret documentation.
-	if err := os.WriteFile(path, []byte(skills.CRMServiceSkill), 0o644); err != nil {
-		t.Fatalf("os.WriteFile() returned error: %v", err)
-	}
-
-	result, err := checkInstalledSkill(path, skills.CRMServiceSkill)
-	if err != nil {
-		t.Fatalf("checkInstalledSkill() returned error: %v", err)
-	}
-	if result["status"] != "up_to_date" {
-		t.Errorf("status = %v, expected up_to_date", result["status"])
-	}
-	if result["up_to_date"] != true {
-		t.Errorf("up_to_date = %v, expected true", result["up_to_date"])
-	}
-	if result["bundled_hash"] != result["installed_hash"] {
-		t.Errorf("bundled_hash = %v, installed_hash = %v, expected equal hashes", result["bundled_hash"], result["installed_hash"])
-	}
-}
-
-func TestCheckInstalledSkillStale(t *testing.T) {
-	tmpDir := t.TempDir()
-	path := filepath.Join(tmpDir, "SKILL.md")
-	// #nosec G306 -- Test fixture content is non-secret documentation.
-	if err := os.WriteFile(path, []byte("stale skill content"), 0o644); err != nil {
-		t.Fatalf("os.WriteFile() returned error: %v", err)
-	}
-
-	result, err := checkInstalledSkill(path, skills.CRMServiceSkill)
-	if err != nil {
-		t.Fatalf("checkInstalledSkill() returned error: %v", err)
-	}
-	if result["status"] != "stale" {
-		t.Errorf("status = %v, expected stale", result["status"])
-	}
-	if result["up_to_date"] != false {
-		t.Errorf("up_to_date = %v, expected false", result["up_to_date"])
-	}
-	if result["bundled_hash"] == result["installed_hash"] {
-		t.Error("expected bundled_hash and installed_hash to differ for stale skill")
-	}
-}
-
 func TestSkillInstallCheckUpToDate(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -148,8 +90,8 @@ func TestSkillInstallCheckUpToDate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("defaultSkillInstallPath() returned error: %v", err)
 	}
-	if err := installSkill(path, skills.CRMServiceSkill); err != nil {
-		t.Fatalf("installSkill() returned error: %v", err)
+	if err := skills.InstallSkillBundle(filepath.Dir(path)); err != nil {
+		t.Fatalf("InstallSkillBundle() returned error: %v", err)
 	}
 
 	cmd := skillCmd()
@@ -170,6 +112,9 @@ func TestSkillInstallCheckUpToDate(t *testing.T) {
 	if result["up_to_date"] != true {
 		t.Errorf("up_to_date = %v, expected true", result["up_to_date"])
 	}
+	if filesChecked, ok := result["files_checked"].(float64); !ok || filesChecked < 2 {
+		t.Errorf("files_checked = %v, expected >= 2", result["files_checked"])
+	}
 }
 
 func TestSkillInstallCheckStale(t *testing.T) {
@@ -180,8 +125,12 @@ func TestSkillInstallCheckStale(t *testing.T) {
 	if err != nil {
 		t.Fatalf("defaultSkillInstallPath() returned error: %v", err)
 	}
-	if err := installSkill(path, "stale skill content"); err != nil {
-		t.Fatalf("installSkill() returned error: %v", err)
+	if err := skills.InstallSkillBundle(filepath.Dir(path)); err != nil {
+		t.Fatalf("InstallSkillBundle() returned error: %v", err)
+	}
+	// #nosec G306 -- Test fixture content is non-secret documentation.
+	if err := os.WriteFile(path, []byte("stale skill content"), 0o644); err != nil {
+		t.Fatalf("os.WriteFile() returned error: %v", err)
 	}
 
 	cmd := skillCmd()
