@@ -82,6 +82,45 @@ func outputJSONL(v interface{}, opts Options) error {
 	return StreamJSONLRecords(data, opts)
 }
 
+type CSVStreamWriter struct {
+	headerWritten bool
+	writer        *csv.Writer
+}
+
+func NewCSVStreamWriter() *CSVStreamWriter {
+	return &CSVStreamWriter{writer: csv.NewWriter(os.Stdout)}
+}
+
+func (w *CSVStreamWriter) WritePage(data interface{}, opts Options) error {
+	if data == nil {
+		return nil
+	}
+
+	records, err := extractCSVRecords(data, opts.Fields, opts.Full, opts.Columns)
+	if err != nil {
+		return err
+	}
+	if len(records) == 0 {
+		return nil
+	}
+
+	start := 1
+	if !w.headerWritten {
+		if err := w.writer.Write(records[0]); err != nil {
+			return fmt.Errorf("failed to write CSV: %w", err)
+		}
+		w.headerWritten = true
+	}
+
+	for i := start; i < len(records); i++ {
+		if err := w.writer.Write(records[i]); err != nil {
+			return fmt.Errorf("failed to write CSV: %w", err)
+		}
+	}
+	w.writer.Flush()
+	return w.writer.Error()
+}
+
 func StreamJSONLRecords(data interface{}, opts Options) error {
 	if data == nil {
 		return nil

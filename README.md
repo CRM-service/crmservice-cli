@@ -107,7 +107,9 @@ crmservice list accounts --output json --full
 
 Use `--all` to fetch every page in one command. `--max-results` is required with `--all` (`0` = unlimited). `--page` and `--offset` cannot be used with `--all`. Default `--page-size` with `--all` is 100.
 
-For exports and agent pipelines, prefer `-o jsonl`: one record per line streams cleanly into `jq`, `bulk-create`, and `bulk-update`. Use `-o json` when you need a single JSON array.
+For exports and agent pipelines, prefer `-o jsonl`: one record per line streams cleanly into `jq`, `bulk-create`, and `bulk-update`. Use `-o csv` for spreadsheet-friendly exports. Use `-o json` when you need a single JSON array.
+
+With `--all`, `-o jsonl` and `-o csv` stream results page by page (lower memory use than buffering all pages). Other formats buffer all pages before writing.
 
 ```bash
 # Preview first page (default pagination)
@@ -115,6 +117,9 @@ crmservice list accounts --page-size 20 -o json
 
 # Bounded export: fetch all pages, stop at 500 records
 crmservice list accounts --all --max-results 500 -o jsonl
+
+# CSV export streams one header row plus data rows per page
+crmservice list accounts --all --max-results 500 -o csv
 
 # Unlimited export (use with care)
 crmservice search accounts '{"$eq":["account_type","Customer"]}' --all --max-results 0 -o jsonl

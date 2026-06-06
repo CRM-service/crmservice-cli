@@ -241,8 +241,11 @@ func runListAll(
 	outputFormat string,
 	outputFields []string,
 ) error {
-	if outputFormat == "jsonl" {
+	switch outputFormat {
+	case "jsonl":
 		return runListAllStreamJSONL(cmd, apiClient, module, baseOpts, pageSize, maxResults, verbose, full, outputFormat, outputFields)
+	case "csv":
+		return runListAllStreamCSV(cmd, apiClient, module, baseOpts, pageSize, maxResults, verbose, full, outputFormat, outputFields)
 	}
 
 	result, err := fetchAllListPages(cmd.Context(), apiClient, module, baseOpts, pageSize, maxResults, verbose, full)
@@ -329,6 +332,92 @@ func runListAllStreamJSONL(
 				return err
 			}
 		}
+
+		if truncated {
+			break
+		}
+		if maxResults > 0 && total >= maxResults {
+			break
+		}
+		if len(pageData) < pageSize {
+			break
+		}
+
+		page++
+	}
+
+	if maxResults > 0 && total == maxResults && !truncated {
+		hasMore, err := hasMoreListRecords(cmd.Context(), apiClient, module, baseOpts, maxResults, verbose)
+		if err != nil {
+			return output.ErrorResponse(err)
+		}
+		truncated = hasMore
+	}
+
+	if total == 0 {
+		fmt.Println("No data found")
+	}
+
+	if truncated {
+		return output.TruncationStatus(outputFormat, total, maxResults)
+	}
+	return nil
+}
+
+func runListAllStreamCSV(
+	cmd *cobra.Command,
+	apiClient *api.Client,
+	module string,
+	baseOpts *api.ListOptions,
+	pageSize int,
+	maxResults int,
+	verbose int,
+	full bool,
+	outputFormat string,
+	outputFields []string,
+) error {
+	streamOpts := output.Options{Format: "csv", Fields: outputFields, Full: full}
+	writer := output.NewCSVStreamWriter()
+	total := 0
+	truncated := false
+	page := 1
+
+	for {
+		if verbose >= 1 {
+			fmt.Fprintf(os.Stderr, "[PAGE] Fetching page %d (page-size %d)\n", page, pageSize)
+		}
+
+		opts := cloneListOptions(baseOpts)
+		opts.PageSize = pageSize
+		opts.SetPage(page)
+		opts.Offset = 0
+
+		resp, err := apiClient.List(cmd.Context(), module, opts)
+		if err != nil {
+			return output.ErrorResponse(err)
+		}
+
+		pageData := toInterfaceSlice(resp.Data)
+		if len(pageData) == 0 {
+			break
+		}
+
+		if maxResults > 0 {
+			remaining := maxResults - total
+			if remaining <= 0 {
+				truncated = true
+				break
+			}
+			if len(pageData) > remaining {
+				pageData = pageData[:remaining]
+				truncated = true
+			}
+		}
+
+		if err := writer.WritePage(pageData, streamOpts); err != nil {
+			return err
+		}
+		total += len(pageData)
 
 		if truncated {
 			break

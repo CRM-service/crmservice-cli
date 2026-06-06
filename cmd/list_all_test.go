@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -185,6 +186,94 @@ func TestRunListAllOutputsTruncationStatus(t *testing.T) {
 	lines := strings.Split(strings.TrimSpace(stdout), "\n")
 	if len(lines) != 1 {
 		t.Fatalf("stdout lines = %d, want 1 record line: %q", len(lines), stdout)
+	}
+}
+
+func TestRunListAllStreamsCSV(t *testing.T) {
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		page := r.URL.Query().Get("page[number]")
+		var data []map[string]interface{}
+		switch page {
+		case "1":
+			data = []map[string]interface{}{
+				{"id": "1", "type": "accounts", "attributes": map[string]interface{}{"name": "A"}},
+				{"id": "2", "type": "accounts", "attributes": map[string]interface{}{"name": "B"}},
+			}
+		case "2":
+			data = []map[string]interface{}{
+				{"id": "3", "type": "accounts", "attributes": map[string]interface{}{"name": "C"}},
+			}
+		default:
+			data = []map[string]interface{}{}
+		}
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{"data": data}); err != nil {
+			t.Fatalf("Encode() error: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	cmd := listCmd()
+	cmd.SetContext(context.Background())
+	client := api.NewClient(server.URL+"/api/v1", "token")
+
+	stdout := captureStdout(t, func() {
+		if err := runListAll(cmd, client, "accounts", api.NewListOptions(), 2, 0, 0, false, "csv", nil); err != nil {
+			t.Fatalf("runListAll() error: %v", err)
+		}
+	})
+
+	reader := csv.NewReader(strings.NewReader(stdout))
+	records, err := reader.ReadAll()
+	if err != nil {
+		t.Fatalf("ReadAll() error: %v", err)
+	}
+	if len(records) != 4 {
+		t.Fatalf("CSV records = %d, want header + 3 rows: %q", len(records), stdout)
+	}
+	if records[0][0] != "id" || records[0][1] != "type" {
+		t.Fatalf("CSV header = %v, want [id type]", records[0])
+	}
+	if requests != 2 {
+		t.Errorf("requests = %d, want 2", requests)
+	}
+}
+
+func TestRunListAllOutputsCSVTruncationStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		data := []map[string]interface{}{
+			{"id": "1", "type": "accounts", "attributes": map[string]interface{}{"name": "A"}},
+			{"id": "2", "type": "accounts", "attributes": map[string]interface{}{"name": "B"}},
+		}
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{"data": data}); err != nil {
+			t.Fatalf("Encode() error: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	cmd := listCmd()
+	cmd.SetContext(context.Background())
+	client := api.NewClient(server.URL+"/api/v1", "token")
+
+	stdout := captureStdout(t, func() {
+		stderr := captureStderr(t, func() {
+			if err := runListAll(cmd, client, "accounts", api.NewListOptions(), 100, 1, 0, false, "csv", nil); err != nil {
+				t.Fatalf("runListAll() error: %v", err)
+			}
+		})
+		if !strings.Contains(stderr, "truncated") {
+			t.Fatalf("stderr = %q, expected truncated status", stderr)
+		}
+	})
+
+	reader := csv.NewReader(strings.NewReader(stdout))
+	records, err := reader.ReadAll()
+	if err != nil {
+		t.Fatalf("ReadAll() error: %v", err)
+	}
+	if len(records) != 2 {
+		t.Fatalf("CSV records = %d, want header + 1 row: %q", len(records), stdout)
 	}
 }
 
