@@ -75,5 +75,6 @@ func installSkill(path, content string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(path, []byte(content), 0o600)
+	// #nosec G306 -- Skill content is non-secret documentation intended to be readable.
+	return os.WriteFile(path, []byte(content), 0o644)
 }
