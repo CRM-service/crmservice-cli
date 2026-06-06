@@ -11,6 +11,39 @@ This skill provides guidance for using the `crmservice` CLI tool to interact wit
 
 CRM-service CLI is a command-line tool for interacting with the CRM-service REST API. It provides commands for managing CRM records, listing modules, searching data, and exploring field schemas.
 
+## Agent Quick Start
+
+Canonical workflow for autonomous agent work. Pass `-o json` or `-o jsonl` explicitly on every data command.
+
+```bash
+# 0. Preflight (config, URL, token, auth, cache)
+crmservice doctor -o json
+
+# 1. Discover real API field names and types
+crmservice fields <module> -o json
+
+# 2. Validate filter syntax and field names (stdout only; exits 0 — check valid)
+crmservice filter validate <module> '<filter-json>' -o json | jq -e '.valid'
+
+# 3. Read records (prefer jsonl + --all; inspect stderr for truncated)
+crmservice search <module> '<filter-json>' --all --max-results 500 -o jsonl
+
+# 4. Preview writes before sending
+crmservice create <module> --field "name=..." --dry-run -o json
+printf '{"name":"..."}\n' | crmservice bulk-create <module> --dry-run -o jsonl
+
+# 5. Execute batch writes (always --summary -o json; check failed in output)
+printf '{"id":"123","field":"value"}\n' | crmservice bulk-update <module> --summary -o json
+```
+
+Key contracts:
+
+- `filter validate` → stdout, exit 0; use `jq -e '.valid'`, not exit code
+- `--all --max-results N` → truncation status on **stderr**; exit code stays 0
+- `bulk-*` production writes → `--summary -o json`; with `--continue-on-error`, check `failed > 0`
+
+Recommended env defaults: `CRMSERVICE_OUTPUT_FORMAT=json`, `CRMSERVICE_PAGE_SIZE=100`. Run `crmservice skill install` after upgrading the CLI.
+
 ## Base Commands
 
 | Command | Description |
@@ -180,11 +213,11 @@ For filtered batch updates, validate the filter, build a minimal `{id, changed_f
 ```bash
 filter='{"$eq":["account_type","Prospect"]}'
 
-crmservice filter validate accounts "$filter" -o json
+crmservice filter validate accounts "$filter" -o json | jq -e '.valid'
 
 crmservice search accounts "$filter" --all --max-results 500 --fields "id,account_type" -o jsonl \
   | jq -c '{id, account_type:"Customer"}' \
-  | crmservice bulk-update accounts --summary --concurrency 4
+  | crmservice bulk-update accounts --summary -o json --concurrency 4
 ```
 
 Bulk flags: `--continue-on-error`, `--dry-run`, `--concurrency N`, `--skip-empty`, and `--summary`.
