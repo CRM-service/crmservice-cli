@@ -96,6 +96,10 @@ func defaultConfigFile() string {
 	return filepath.Join(configDir, "crmservice", "config.yaml")
 }
 
+func DefaultConfigPath() string {
+	return defaultConfigFile()
+}
+
 func applyEnv(config *Config) {
 	if value := os.Getenv("CRMSERVICE_API_URL"); value != "" {
 		config.API.URL = value

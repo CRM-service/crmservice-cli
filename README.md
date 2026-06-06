@@ -103,6 +103,33 @@ crmservice list accounts --output jsonl
 crmservice list accounts --output json --full
 ```
 
+#### Fetch all pages (`--all`)
+
+Use `--all` to fetch every page in one command. `--max-results` is required with `--all` (`0` = unlimited). `--page` and `--offset` cannot be used with `--all`. Default `--page-size` with `--all` is 100.
+
+For exports and agent pipelines, prefer `-o jsonl`: one record per line streams cleanly into `jq`, `bulk-create`, and `bulk-update`. Use `-o csv` for spreadsheet-friendly exports. Use `-o json` when you need a single JSON array.
+
+With `--all`, `-o jsonl` and `-o csv` stream results page by page (lower memory use than buffering all pages). Other formats buffer all pages before writing.
+
+```bash
+# Preview first page (default pagination)
+crmservice list accounts --page-size 20 -o json
+
+# Bounded export: fetch all pages, stop at 500 records
+crmservice list accounts --all --max-results 500 -o jsonl
+
+# CSV export streams one header row plus data rows per page
+crmservice list accounts --all --max-results 500 -o csv
+
+# Unlimited export (use with care)
+crmservice search accounts '{"$eq":["account_type","Customer"]}' --all --max-results 0 -o jsonl
+
+# Full JSON:API records across pages
+crmservice list accounts --all --max-results 1000 --full -o json
+```
+
+When `--max-results` is reached and more records may exist, a truncation status is printed to stderr in the requested output format (`-o json`, `-o jsonl`, etc.). Use `--verbose 1` to log page progress to stderr.
+
 ### Get Record
 
 ```bash
@@ -133,15 +160,15 @@ echo '{"data":{"type":"accounts","attributes":{"name":"Test Corp","email":"test@
 
 ```bash
 # Copy accounts between CRM instances
-crmservice --url a.crmservice.fi list accounts -o jsonl \
+crmservice --url a.crmservice.fi list accounts --all --max-results 500 -o jsonl \
   | crmservice --url b.crmservice.fi bulk-create accounts
 
 # Preview JSON:API request bodies without sending them
-crmservice list accounts -o jsonl \
+crmservice list accounts --all --max-results 500 -o jsonl \
   | crmservice bulk-create accounts --dry-run -o jsonl
 
 # Run with concurrency and continue after individual record errors
-crmservice list accounts -o jsonl \
+crmservice list accounts --all --max-results 500 -o jsonl \
   | crmservice bulk-create accounts --concurrency 4 --continue-on-error --summary -o json
 ```
 
@@ -164,7 +191,7 @@ echo '{"data":{"type":"accounts","id":"<id>","attributes":{"name":"New Name"}}}'
 `bulk-update` reads flat JSONL records or a JSON array from stdin. Each record must include `id`; `id` is used as the target record ID and removed from the attributes sent to the API.
 
 ```bash
-crmservice list accounts -o jsonl \
+crmservice list accounts --all --max-results 500 -o jsonl \
   | jq 'select(.account_type == "Prospect") | .account_type = "Customer"' \
   | crmservice bulk-update accounts --concurrency 4 --continue-on-error
 ```
@@ -220,9 +247,30 @@ crmservice search contacts '{"$or":[{"$eq":["id","123"]},{"$eq":["id","456"]}]}'
 crmservice search contacts '{"$eq":["mailing_city","Helsinki"]}' --sort last_name,first_name
 ```
 
+### Count
+
+`count` returns the number of records in a module, optionally filtered. It uses the reporting API (not JSON:API) and is faster than fetching records when you only need a total.
+
+```bash
+# Count all records in a module
+crmservice count accounts -o json
+
+# Count with filter (positional, like search)
+crmservice count accounts '{"$eq":["account_type","Customer"]}' -o json
+
+# Count with --filter (like list)
+crmservice count accounts --filter '{"$eq":["account_type","Customer"]}' -o json
+
+# Relation filters may need --include
+crmservice count contacts --include account \
+  --filter '{"$eq":["account.account_type","Customer"]}' -o json
+```
+
+`-o json` returns `{"module":"accounts","total":42}` and includes `filter` when one was used.
+
 ### Filter Language
 
-Filters are JSON expressions used by `list --filter` and `search`. Quote them with single quotes in the shell.
+Filters are JSON expressions used by `list --filter`, `search`, and `count`. Quote them with single quotes in the shell.
 
 Preferred syntax is an operator object:
 
@@ -255,18 +303,34 @@ Common operators:
 
 Use API field names from `crmservice fields <module>`. Related fields can be addressed as `relation.field` when supported by the backend.
 
+`list`, `search`, and `count` always validate filters before calling the API: JSON syntax, operator shape, and field names against the module schema (including one-level relation paths like `account.account_type`). Invalid filters fail locally with a non-zero exit code.
+
 Filter tooling:
 
 ```bash
 crmservice filter reference
-crmservice filter validate '{"$and":[{"$eq":["account_type","Customer"]},{"$cts":["name","Acme"]}]}'
+crmservice filter validate '{"$and":[{"$eq":["account_type","Customer"]},{"$cts":["name","Acme"]}]}' -o json
+crmservice filter validate accounts '{"$eq":["account_type","Customer"]}' -o json
 ```
+
+`filter validate` is a standalone check that prints the result to stdout only. Exit code 0 means the filter is valid; non-zero means invalid. The stdout payload still includes `valid`, `message`, and related fields for inspection.
 
 ### Discover Modules
 
 ```bash
 crmservice modules
 ```
+
+### Preflight Checks
+
+Run before automated agent work to verify config, API reachability, token, authentication, and schema cache writability:
+
+```bash
+crmservice doctor
+crmservice doctor -o json
+```
+
+`doctor -o json` returns structured fields including `ok`, `issues`, `api_reachable`, `authenticated`, and `cache_writable`. Exit code is non-zero when checks fail.
 
 ### Show Current User
 
@@ -286,15 +350,24 @@ crmservice skill path
 # Review the bundled skill content
 crmservice skill print
 
-# Install or update the skill in ~/.agents/skills/crmservice/SKILL.md
+# Install or update the skill tree in ~/.agents/skills/crmservice/
 crmservice skill install
+
+# Check whether the installed skill matches the bundled version
+crmservice skill install --check -o json
 ```
 
-`skill install` installs the latest bundled version of the skill.
+The bundled skill is a multi-file tree: `SKILL.md` (entry point) plus `references/*.md` topic guides.
+
+`skill install` copies the full tree to `~/.agents/skills/crmservice/`. `skill print` shows the entry-point `SKILL.md` only.
+
+`skill install --check` compares the installed skill tree with the bundled copy (manifest SHA-256). It prints the result to **stdout** only in the requested output format (`-o json` recommended). Exit code `0` means up to date; non-zero means missing or stale. The stdout payload includes `status` (`up_to_date`, `stale`, or `missing`), `up_to_date`, `installed`, `files_checked`, `path`, `bundled_hash`, `installed_hash`, and `message`. Run `crmservice skill install` when `--check` reports `stale` or `missing`.
 
 ## JSON:API Compliance
 
-For `--output json` and `--output yaml`, list/search responses are flattened to record objects by default (top-level `id` plus `attributes`). Use `--full` to output the complete JSON:API response envelope.
+For `--output json` and `--output yaml`, list/search responses are flattened to record objects by default (top-level `id` plus `attributes`). Use `--full` to output the complete JSON:API response envelope. For multi-record exports, prefer `--output jsonl` (especially with `--all`).
+
+`--max-results` is only valid with `--all`. Passing `--max-results` without `--all` is an error.
 
 The client follows JSON:API specification (v1.0) for:
 - Resource objects

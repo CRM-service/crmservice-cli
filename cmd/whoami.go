@@ -66,9 +66,13 @@ func whoamiCmd() *cobra.Command {
 }
 
 func getOptionalURLFromFlagEnvConfig(cmd *cobra.Command) (string, error) {
-	url, err := cmd.Flags().GetString("url")
-	if err != nil {
-		return "", err
+	url := ""
+	if cmd.Flags().Lookup("url") != nil {
+		var err error
+		url, err = cmd.Flags().GetString("url")
+		if err != nil {
+			return "", err
+		}
 	}
 	if url == "" {
 		url = os.Getenv("CRMSERVICE_API_URL")

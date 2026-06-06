@@ -79,18 +79,73 @@ func outputJSONL(v interface{}, opts Options) error {
 		fmt.Println("No data found")
 		return nil
 	}
+	return StreamJSONLRecords(data, opts)
+}
+
+type CSVStreamWriter struct {
+	headerWritten bool
+	writer        *csv.Writer
+}
+
+func NewCSVStreamWriter() *CSVStreamWriter {
+	return &CSVStreamWriter{writer: csv.NewWriter(os.Stdout)}
+}
+
+func (w *CSVStreamWriter) WritePage(data interface{}, opts Options) error {
+	if data == nil {
+		return nil
+	}
+
+	records, err := extractCSVRecords(data, opts.Fields, opts.Full, opts.Columns)
+	if err != nil {
+		return err
+	}
+	if len(records) == 0 {
+		return nil
+	}
+
+	start := 1
+	if !w.headerWritten {
+		if err := w.writer.Write(records[0]); err != nil {
+			return fmt.Errorf("failed to write CSV: %w", err)
+		}
+		w.headerWritten = true
+	}
+
+	for i := start; i < len(records); i++ {
+		if err := w.writer.Write(records[i]); err != nil {
+			return fmt.Errorf("failed to write CSV: %w", err)
+		}
+	}
+	w.writer.Flush()
+	return w.writer.Error()
+}
+
+func StreamJSONLRecords(data interface{}, opts Options) error {
+	if data == nil {
+		return nil
+	}
 
 	encoder := json.NewEncoder(os.Stdout)
 	dataVal := reflect.ValueOf(data)
 	if dataVal.Kind() == reflect.Slice {
 		for i := 0; i < dataVal.Len(); i++ {
-			if err := encoder.Encode(dataVal.Index(i).Interface()); err != nil {
+			record := dataVal.Index(i).Interface()
+			if !opts.Full {
+				record = flattenResource(record)
+			}
+			if err := encoder.Encode(record); err != nil {
 				return err
 			}
 		}
 		return nil
 	}
-	return encoder.Encode(data)
+
+	record := data
+	if !opts.Full {
+		record = flattenResource(data)
+	}
+	return encoder.Encode(record)
 }
 
 func cleanJSONLRecords(v interface{}, opts Options) interface{} {
@@ -491,10 +546,22 @@ func printSeparator(colWidths []int) {
 }
 
 func ErrorResponse(err error) error {
-	if apiErr, ok := err.(*api.Error); ok {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", apiErr.Message)
-		return err
+	if writeErr := StderrError(activeFormat, err); writeErr != nil {
+		return &ReportedError{Err: writeErr}
 	}
-	fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-	return err
+	return &ReportedError{Err: err}
+}
+
+func TruncationStatus(format string, returned, maxResults int) error {
+	status := map[string]interface{}{
+		"status":      "truncated",
+		"max_results": maxResults,
+		"returned":    returned,
+		"message":     fmt.Sprintf("Returned %d records (limit %d); more records may exist", returned, maxResults),
+	}
+	if format == "table" {
+		fmt.Fprintf(os.Stderr, "Truncated: %s\n", status["message"])
+		return nil
+	}
+	return WriteStderr(format, status)
 }

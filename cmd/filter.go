@@ -1,12 +1,18 @@
 package cmd
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
+	"crmservice/internal/api"
+	"crmservice/internal/output"
+
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 var filterOperators = map[string]filterOperatorSpec{
@@ -94,18 +100,58 @@ func filterCmd() *cobra.Command {
 		},
 	})
 
-	cmd.AddCommand(&cobra.Command{
-		Use:   "validate <filter-json>",
-		Short: "Validate filter JSON syntax and common operator shapes",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := validateFilterJSON(args[0]); err != nil {
-				return err
+	validateCmd := &cobra.Command{
+		Use:           "validate [module] <filter-json>",
+		Short:         "Validate filter JSON syntax and optionally check fields against module schema",
+		SilenceErrors: true,
+		SilenceUsage:  true,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) < 1 || len(args) > 2 {
+				return fmt.Errorf("requires 1 or 2 arguments")
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "filter OK")
 			return nil
 		},
-	})
+		RunE: func(cmd *cobra.Command, args []string) error {
+			outputFormat, err := getOutputFormatFromFlagConfig(cmd)
+			if err != nil {
+				return err
+			}
+			if !ValidOutputFormat(outputFormat) {
+				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
+			}
+
+			module := ""
+			filterJSON := args[0]
+			if len(args) == 2 {
+				module = args[0]
+				filterJSON = args[1]
+			}
+
+			if module == "" {
+				if err := validateFilterJSON(filterJSON); err != nil {
+					return outputFilterValidateResult(outputFormat, filterValidateFailure("", filterJSON, false, err))
+				}
+				return outputFilterValidateResult(outputFormat, filterValidateSuccess("", filterJSON, false))
+			}
+
+			url := getURLFromFlagOrEnv(cmd)
+			token, err := getRequiredTokenFromFlagEnvConfig(cmd)
+			if err != nil {
+				return err
+			}
+			verbose, err := cmd.Flags().GetInt("verbose")
+			if err != nil {
+				return err
+			}
+			if err := validateFilterJSONAgainstModule(module, filterJSON, url, token, verbose); err != nil {
+				return outputFilterValidateResult(outputFormat, filterValidateFailure(module, filterJSON, true, err))
+			}
+			return outputFilterValidateResult(outputFormat, filterValidateSuccess(module, filterJSON, true))
+		},
+	}
+	validateCmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
+	validateCmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
+	cmd.AddCommand(validateCmd)
 
 	return cmd
 }
@@ -200,4 +246,158 @@ func validateFilterOperator(operator string, node interface{}, path string) erro
 		}
 	}
 	return nil
+}
+
+func collectFilterFields(expr interface{}) []string {
+	fields := []string{}
+	collectFilterFieldsWalk(expr, &fields)
+	return fields
+}
+
+func collectFilterFieldsWalk(expr interface{}, fields *[]string) {
+	switch value := expr.(type) {
+	case map[string]interface{}:
+		for key, node := range value {
+			if strings.HasPrefix(key, "$") {
+				collectFilterFieldsFromOperator(key, node, fields)
+				continue
+			}
+			if strings.TrimSpace(key) != "" {
+				*fields = append(*fields, key)
+			}
+		}
+	case []interface{}:
+		for _, node := range value {
+			collectFilterFieldsWalk(node, fields)
+		}
+	}
+}
+
+func filterValidateFailure(module, filterJSON string, schemaChecked bool, validationErr error) map[string]interface{} {
+	result := map[string]interface{}{
+		"valid":          false,
+		"schema_checked": schemaChecked,
+		"message":        validationErr.Error(),
+	}
+	if module != "" {
+		result["module"] = module
+	}
+	if parsed, err := parseFilterJSONValue(filterJSON); err == nil {
+		result["filter"] = parsed
+	}
+	return result
+}
+
+func filterValidateSuccess(module, filterJSON string, schemaChecked bool) map[string]interface{} {
+	result := map[string]interface{}{
+		"valid":          true,
+		"schema_checked": schemaChecked,
+	}
+	if module != "" {
+		result["module"] = module
+		result["message"] = fmt.Sprintf("filter OK for module %s", module)
+	} else {
+		result["message"] = "filter OK"
+	}
+	if parsed, err := parseFilterJSONValue(filterJSON); err == nil {
+		result["filter"] = parsed
+	}
+	return result
+}
+
+func parseFilterJSONValue(input string) (interface{}, error) {
+	var filter interface{}
+	decoder := json.NewDecoder(strings.NewReader(input))
+	decoder.UseNumber()
+	if err := decoder.Decode(&filter); err != nil {
+		return nil, err
+	}
+	return filter, nil
+}
+
+func outputFilterValidateResult(format string, data map[string]interface{}) error {
+	if err := outputFilterValidate(format, data); err != nil {
+		return err
+	}
+	if valid, ok := data["valid"].(bool); ok && !valid {
+		message := "filter validation failed"
+		if msg, ok := data["message"].(string); ok && msg != "" {
+			message = msg
+		}
+		return &output.ReportedError{Err: fmt.Errorf("%s", message)}
+	}
+	return nil
+}
+
+func outputFilterValidate(format string, data map[string]interface{}) error {
+	switch format {
+	case "table":
+		keys := []string{"valid", "schema_checked", "module", "message"}
+		for _, key := range keys {
+			if value, ok := data[key]; ok && value != nil && value != "" {
+				fmt.Printf("%-20s | %v\n", key, value)
+			}
+		}
+		return nil
+	case "csv":
+		columns := []string{"valid", "schema_checked", "module", "message"}
+		writer := csv.NewWriter(os.Stdout)
+		if err := writer.Write(columns); err != nil {
+			return err
+		}
+		row := make([]string, len(columns))
+		for i, column := range columns {
+			if value, ok := data[column]; ok && value != nil {
+				row[i] = fmt.Sprintf("%v", value)
+			}
+		}
+		if err := writer.Write(row); err != nil {
+			return err
+		}
+		writer.Flush()
+		return writer.Error()
+	case "yaml":
+		encoder := yaml.NewEncoder(os.Stdout)
+		encoder.SetIndent(2)
+		return encoder.Encode(data)
+	case "json":
+		encoder := json.NewEncoder(os.Stdout)
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(data)
+	case "jsonl":
+		return json.NewEncoder(os.Stdout).Encode(data)
+	default:
+		return output.ItemResponse(&api.SingleResponse{Data: data}, output.Options{Format: format, Full: false})
+	}
+}
+
+func collectFilterFieldsFromOperator(operator string, node interface{}, fields *[]string) {
+	if logicalFilterOperators[operator] {
+		items, ok := node.([]interface{})
+		if !ok {
+			return
+		}
+		for _, item := range items {
+			collectFilterFieldsWalk(item, fields)
+		}
+		return
+	}
+
+	if operator == "$not" {
+		collectFilterFieldsWalk(node, fields)
+		return
+	}
+
+	spec, ok := filterOperators[operator]
+	if !ok || !spec.FieldFirst {
+		return
+	}
+
+	args, ok := node.([]interface{})
+	if !ok || len(args) == 0 {
+		return
+	}
+	if field, ok := args[0].(string); ok && strings.TrimSpace(field) != "" {
+		*fields = append(*fields, field)
+	}
 }

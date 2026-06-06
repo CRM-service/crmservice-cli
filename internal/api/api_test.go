@@ -3,8 +3,10 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -933,4 +935,62 @@ func TestResponseUnmarshalsIncluded(t *testing.T) {
 	if len(included) != 1 {
 		t.Fatalf("len(Included) = %d, expected 1", len(included))
 	}
+}
+
+func TestClientVerboseLogsToStderr(t *testing.T) {
+	client := NewClient("https://api.example.com", "")
+	client.Verbose = 1
+
+	stdout := captureAPIStdout(t, func() {
+		stderr := captureAPIStderr(t, func() {
+			client.logRequest(http.MethodGet, "/accounts")
+			client.logResponse(http.StatusOK, []byte(`{"data":[]}`))
+		})
+		if !strings.Contains(stderr, "[REQUEST]") || !strings.Contains(stderr, "[RESPONSE]") {
+			t.Fatalf("stderr = %q, expected request and response logs", stderr)
+		}
+	})
+	if stdout != "" {
+		t.Fatalf("stdout = %q, expected empty", stdout)
+	}
+}
+
+func captureAPIStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	orig := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe() failed: %v", err)
+	}
+	os.Stdout = w
+	fn()
+	if err := w.Close(); err != nil {
+		t.Fatalf("Close() failed: %v", err)
+	}
+	os.Stdout = orig
+	data, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("ReadAll() failed: %v", err)
+	}
+	return string(data)
+}
+
+func captureAPIStderr(t *testing.T, fn func()) string {
+	t.Helper()
+	orig := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe() failed: %v", err)
+	}
+	os.Stderr = w
+	fn()
+	if err := w.Close(); err != nil {
+		t.Fatalf("Close() failed: %v", err)
+	}
+	os.Stderr = orig
+	data, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("ReadAll() failed: %v", err)
+	}
+	return string(data)
 }

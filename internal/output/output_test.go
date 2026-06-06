@@ -787,6 +787,47 @@ func captureStdout(t *testing.T, fn func()) string {
 	return string(out)
 }
 
+func TestCSVStreamWriterWritesHeaderOnceAcrossPages(t *testing.T) {
+	dataPage1 := []interface{}{
+		map[string]interface{}{
+			"id":         "1",
+			"type":       "accounts",
+			"attributes": map[string]interface{}{"name": "A"},
+		},
+	}
+	dataPage2 := []interface{}{
+		map[string]interface{}{
+			"id":         "2",
+			"type":       "accounts",
+			"attributes": map[string]interface{}{"name": "B"},
+		},
+	}
+
+	opts := Options{Format: "csv"}
+
+	out := captureStdout(t, func() {
+		writer := NewCSVStreamWriter()
+		if err := writer.WritePage(dataPage1, opts); err != nil {
+			t.Fatalf("WritePage(page1) error: %v", err)
+		}
+		if err := writer.WritePage(dataPage2, opts); err != nil {
+			t.Fatalf("WritePage(page2) error: %v", err)
+		}
+	})
+
+	reader := csv.NewReader(strings.NewReader(out))
+	records, err := reader.ReadAll()
+	if err != nil {
+		t.Fatalf("ReadAll() error: %v", err)
+	}
+	if len(records) != 3 {
+		t.Fatalf("CSV records = %d, want header + 2 rows: %q", len(records), out)
+	}
+	if records[0][0] != "id" || records[0][1] != "type" {
+		t.Fatalf("CSV header = %v, want [id type]", records[0])
+	}
+}
+
 func TestOutputJSONLNonFullWritesOneFlatRecordPerLine(t *testing.T) {
 	resp := &api.Response{
 		Data: []interface{}{

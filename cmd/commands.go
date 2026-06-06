@@ -49,7 +49,7 @@ func getAPIURL() string {
 		url = cfg.API.URL
 	}
 	if url == "" {
-		fmt.Fprintf(os.Stderr, "Error: API URL not provided. Set CRMSERVICE_API_URL environment variable, config api.url, or use --url flag\n")
+		output.EmitError(fmt.Errorf("API URL not provided. Set CRMSERVICE_API_URL environment variable, config api.url, or use --url flag"))
 		os.Exit(1)
 	}
 
@@ -75,9 +75,13 @@ func getURLFromFlagOrEnv(cmd *cobra.Command) string {
 }
 
 func getTokenFromFlagEnvConfig(cmd *cobra.Command) (string, error) {
-	token, err := cmd.Flags().GetString("token")
-	if err != nil {
-		return "", err
+	token := ""
+	if cmd.Flags().Lookup("token") != nil {
+		var err error
+		token, err = cmd.Flags().GetString("token")
+		if err != nil {
+			return "", err
+		}
 	}
 	if token == "" {
 		token = os.Getenv("CRMSERVICE_AUTH_TOKEN")
@@ -107,6 +111,7 @@ func getOutputFormatFromFlagConfig(cmd *cobra.Command) (string, error) {
 	if !cmd.Flags().Changed("output") && cfg != nil && cfg.Output.Format != "" {
 		outputFormat = cfg.Output.Format
 	}
+	output.SetActiveFormat(outputFormat)
 	return outputFormat, nil
 }
 
@@ -258,7 +263,7 @@ func getSchemaBody(module, url, token string, verbose int, force bool) ([]byte, 
 		cachedBody, err := schemaCache.Load(module)
 		if err == nil {
 			if verbose >= 1 {
-				fmt.Printf("[CACHE] HIT %s\n", schemaCache.GetPath(module))
+				fmt.Fprintf(os.Stderr, "[CACHE] HIT %s\n", schemaCache.GetPath(module))
 			}
 			return cachedBody, nil
 		}
@@ -266,10 +271,10 @@ func getSchemaBody(module, url, token string, verbose int, force bool) ([]byte, 
 			return nil, fmt.Errorf("schema cache unavailable for %s and auto refresh is disabled: %w", module, err)
 		}
 		if verbose >= 1 {
-			fmt.Printf("[CACHE] MISS %s: %v\n", schemaCache.GetPath(module), err)
+			fmt.Fprintf(os.Stderr, "[CACHE] MISS %s: %v\n", schemaCache.GetPath(module), err)
 		}
 	} else if verbose >= 1 {
-		fmt.Printf("[CACHE] FORCE REFRESH %s\n", schemaCache.GetPath(module))
+		fmt.Fprintf(os.Stderr, "[CACHE] FORCE REFRESH %s\n", schemaCache.GetPath(module))
 	}
 
 	body, err := fetchSchemaBody(module, url, token, verbose)
@@ -307,7 +312,7 @@ func fetchSchemaBody(module, url, token string, verbose int) ([]byte, error) {
 	reqURL := strings.TrimSuffix(url, "/") + "/schema/" + module
 
 	if verbose >= 1 {
-		fmt.Printf("[REQUEST] GET %s\n", reqURL)
+		fmt.Fprintf(os.Stderr, "[REQUEST] GET %s\n", reqURL)
 	}
 
 	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
@@ -333,10 +338,10 @@ func fetchSchemaBody(module, url, token string, verbose int) ([]byte, error) {
 	}
 
 	if verbose >= 1 {
-		fmt.Printf("[RESPONSE] Status: %d\n", resp.StatusCode)
+		fmt.Fprintf(os.Stderr, "[RESPONSE] Status: %d\n", resp.StatusCode)
 	}
 	if verbose >= 2 {
-		fmt.Printf("[RESPONSE BODY]\n%s\n", string(body))
+		fmt.Fprintf(os.Stderr, "[RESPONSE BODY]\n%s\n", string(body))
 	}
 
 	if resp.StatusCode >= 400 {
@@ -360,16 +365,8 @@ func listCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().Int("page-size", 20, "Items per page")
-	cmd.Flags().String("include", "", "Comma-separated relation names to include")
-	cmd.Flags().String("fields", "", "Comma-separated field names to include")
-	cmd.Flags().String("sort", "", "Comma-separated field names to sort by (prefix with - for descending)")
-	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
+	addListSearchFlags(cmd)
 	cmd.Flags().String("filter", "", "Filter in JSON format")
-	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
-	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
-	cmd.Flags().Int("page", 1, "Page number")
-	cmd.Flags().Int("offset", 0, "Offset for pagination")
 
 	return cmd
 }
@@ -393,7 +390,12 @@ func runListCommand(cmd *cobra.Command, args []string, filterOverride string) er
 		return err
 	}
 
-	pageSize, err := getPageSizeFromFlagConfig(cmd)
+	all, maxResults, err := validateListAllFlags(cmd)
+	if err != nil {
+		return err
+	}
+
+	pageSize, err := pageSizeForList(cmd, all)
 	if err != nil {
 		return err
 	}
@@ -430,6 +432,12 @@ func runListCommand(cmd *cobra.Command, args []string, filterOverride string) er
 	}
 
 	url := getURLFromFlagOrEnv(cmd)
+
+	if filter != "" {
+		if err := validateModuleFilter(module, filter, url, token, verbose); err != nil {
+			return output.ErrorResponse(err)
+		}
+	}
 
 	apiClient := api.NewClient(url, token)
 	apiClient.Verbose = verbose
@@ -468,14 +476,18 @@ func runListCommand(cmd *cobra.Command, args []string, filterOverride string) er
 		opts.AddInclude(include)
 	}
 
-	resp, err := apiClient.List(cmd.Context(), module, opts)
-	if err != nil {
-		return output.ErrorResponse(err)
-	}
-
 	var outputFields []string
 	if fields != "" {
 		outputFields = splitCommaSeparated(fields)
+	}
+
+	if all {
+		return runListAll(cmd, apiClient, module, opts, pageSize, maxResults, verbose, full, outputFormat, outputFields)
+	}
+
+	resp, err := apiClient.List(cmd.Context(), module, opts)
+	if err != nil {
+		return output.ErrorResponse(err)
 	}
 
 	return output.ListResponse(resp, output.Options{
@@ -563,10 +575,6 @@ func createCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			module := args[0]
-			token, err := getRequiredTokenFromFlagEnvConfig(cmd)
-			if err != nil {
-				return err
-			}
 			outputFormat, err := getOutputFormatFromFlagConfig(cmd)
 			if err != nil {
 				return err
@@ -587,17 +595,34 @@ func createCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			dryRun, err := cmd.Flags().GetBool("dry-run")
+			if err != nil {
+				return err
+			}
+
+			input, err := getBodyInput(cmd, "", "create")
+			if err != nil {
+				return err
+			}
+
+			if dryRun {
+				body, err := singleRecordRequestBody(module, "", "create", input)
+				if err != nil {
+					return err
+				}
+				return outputDryRunRequest("create", module, "", body, outputFormat)
+			}
+
+			token, err := getRequiredTokenFromFlagEnvConfig(cmd)
+			if err != nil {
+				return err
+			}
 
 			url := getURLFromFlagOrEnv(cmd)
 
 			apiClient := api.NewClient(url, token)
 			apiClient.Verbose = verbose
 			apiClient.HTTPClient.Timeout = getTimeoutFromConfig()
-
-			input, err := getBodyInput(cmd, "", "create")
-			if err != nil {
-				return err
-			}
 
 			var resp *api.SingleResponse
 			if input.raw {
@@ -619,6 +644,7 @@ func createCmd() *cobra.Command {
 
 	cmd.Flags().StringArray("field", []string{}, "Field values to set")
 	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
+	cmd.Flags().Bool("dry-run", false, "Build the request body without sending it to the API")
 	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
 	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
 
@@ -633,10 +659,6 @@ func updateCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			module := args[0]
 			id := args[1]
-			token, err := getRequiredTokenFromFlagEnvConfig(cmd)
-			if err != nil {
-				return err
-			}
 			outputFormat, err := getOutputFormatFromFlagConfig(cmd)
 			if err != nil {
 				return err
@@ -657,17 +679,34 @@ func updateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			dryRun, err := cmd.Flags().GetBool("dry-run")
+			if err != nil {
+				return err
+			}
+
+			input, err := getBodyInput(cmd, id, "update")
+			if err != nil {
+				return err
+			}
+
+			if dryRun {
+				body, err := singleRecordRequestBody(module, id, "update", input)
+				if err != nil {
+					return err
+				}
+				return outputDryRunRequest("update", module, id, body, outputFormat)
+			}
+
+			token, err := getRequiredTokenFromFlagEnvConfig(cmd)
+			if err != nil {
+				return err
+			}
 
 			url := getURLFromFlagOrEnv(cmd)
 
 			apiClient := api.NewClient(url, token)
 			apiClient.Verbose = verbose
 			apiClient.HTTPClient.Timeout = getTimeoutFromConfig()
-
-			input, err := getBodyInput(cmd, id, "update")
-			if err != nil {
-				return err
-			}
 
 			var resp *api.SingleResponse
 			if input.raw {
@@ -689,6 +728,7 @@ func updateCmd() *cobra.Command {
 
 	cmd.Flags().StringArray("field", []string{}, "Field values to update")
 	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
+	cmd.Flags().Bool("dry-run", false, "Build the request body without sending it to the API")
 	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
 	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
 
@@ -707,6 +747,13 @@ func deleteCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			outputFormat, err := getOutputFormatFromFlagConfig(cmd)
+			if err != nil {
+				return err
+			}
+			if !ValidOutputFormat(outputFormat) {
+				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
+			}
 			verbose, err := cmd.Flags().GetInt("verbose")
 			if err != nil {
 				return err
@@ -723,11 +770,11 @@ func deleteCmd() *cobra.Command {
 				return output.ErrorResponse(errDelete)
 			}
 
-			fmt.Printf("Successfully deleted %s %s\n", module, id)
-			return nil
+			return outputDeleteResult(module, id, outputFormat)
 		},
 	}
 
+	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
 	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
 
 	return cmd
@@ -933,15 +980,7 @@ func searchCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().Int("page-size", 20, "Items per page")
-	cmd.Flags().String("include", "", "Comma-separated relation names to include")
-	cmd.Flags().String("fields", "", "Comma-separated field names to include")
-	cmd.Flags().String("sort", "", "Comma-separated field names to sort by (prefix with - for descending)")
-	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
-	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
-	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
-	cmd.Flags().Int("page", 1, "Page number")
-	cmd.Flags().Int("offset", 0, "Offset for pagination")
+	addListSearchFlags(cmd)
 
 	return cmd
 }
