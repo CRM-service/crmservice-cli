@@ -51,6 +51,7 @@ Recommended env defaults: `CRMSERVICE_OUTPUT_FORMAT=json`, `CRMSERVICE_PAGE_SIZE
 | `completion` | Generate autocompletion for bash, fish, powershell, or zsh |
 | `bulk-create` | Create multiple records from JSONL or a JSON array |
 | `bulk-update` | Update multiple records from JSONL or a JSON array |
+| `count` | Count records matching a filter (uses reporting API) |
 | `create` | Create a new record in a module |
 | `delete` | Delete a record by ID |
 | `doctor` | Run preflight checks (config, URL, token, cache) |
@@ -239,6 +240,20 @@ crmservice search contacts '{"$or":[{"$eq":["id","123"]},{"$eq":["id","456"]}]}'
 crmservice search contacts '{"$eq":["mailing_city","Helsinki"]}' --sort "last_name,first_name"
 ```
 
+### Count Records
+
+Use `count` when you need a total without fetching records. It accepts the same filter JSON as `search` and uses the reporting API internally.
+
+```bash
+crmservice count accounts -o json
+crmservice count accounts '{"$eq":["account_type","Customer"]}' -o json
+crmservice count accounts --filter '{"$eq":["account_type","Customer"]}' -o json
+crmservice count contacts --include account \
+  --filter '{"$eq":["account.account_type","Customer"]}' -o json
+```
+
+`-o json` returns `{"module":"accounts","total":42}` and includes `filter` when one was used.
+
 ### Show Fields
 ```bash
 crmservice fields accounts
@@ -289,7 +304,7 @@ crmservice completion fish > ~/.config/fish/completions/crmservice.fish
 
 ## Filter Language
 
-Filters are JSON expressions used by `crmservice list <module> --filter '<json>'` and `crmservice search <module> '<json>'`. Always quote the JSON in the shell with single quotes.
+Filters are JSON expressions used by `crmservice list <module> --filter '<json>'`, `crmservice search <module> '<json>'`, and `crmservice count <module> '<json>'`. Always quote the JSON in the shell with single quotes.
 
 Use field **names** from `crmservice fields <module>` (not labels). Related fields can be addressed as `relation.field` when the backend exposes and permits that relation.
 
@@ -437,7 +452,14 @@ crmservice list accounts --all --max-results 500 -o jsonl
 crmservice search accounts '{"$eq":["account_type","Customer"]}' --all --max-results 0 -o jsonl
 ```
 
-For a single-page preview or when you need `.meta.total`, use normal pagination:
+For totals, prefer `count` over fetching records:
+
+```bash
+crmservice count accounts -o json
+crmservice count accounts '{"$eq":["account_type","Customer"]}' -o json
+```
+
+For a single-page preview or JSON:API metadata, use normal pagination:
 
 ```bash
 crmservice list accounts --page 1 --page-size 1 --full -o json | jq '.meta'

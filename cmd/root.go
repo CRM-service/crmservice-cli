@@ -79,6 +79,7 @@ func init() {
 	rootCmd.AddCommand(fieldsCmd())
 	rootCmd.AddCommand(filterCmd())
 	rootCmd.AddCommand(searchCmd())
+	rootCmd.AddCommand(countCmd())
 	rootCmd.AddCommand(skillCmd())
 	rootCmd.AddCommand(modulesCmd())
 	rootCmd.AddCommand(whoamiCmd())

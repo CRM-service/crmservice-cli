@@ -242,9 +242,30 @@ crmservice search contacts '{"$or":[{"$eq":["id","123"]},{"$eq":["id","456"]}]}'
 crmservice search contacts '{"$eq":["mailing_city","Helsinki"]}' --sort last_name,first_name
 ```
 
+### Count
+
+`count` returns the number of records in a module, optionally filtered. It uses the reporting API (not JSON:API) and is faster than fetching records when you only need a total.
+
+```bash
+# Count all records in a module
+crmservice count accounts -o json
+
+# Count with filter (positional, like search)
+crmservice count accounts '{"$eq":["account_type","Customer"]}' -o json
+
+# Count with --filter (like list)
+crmservice count accounts --filter '{"$eq":["account_type","Customer"]}' -o json
+
+# Relation filters may need --include
+crmservice count contacts --include account \
+  --filter '{"$eq":["account.account_type","Customer"]}' -o json
+```
+
+`-o json` returns `{"module":"accounts","total":42}` and includes `filter` when one was used.
+
 ### Filter Language
 
-Filters are JSON expressions used by `list --filter` and `search`. Quote them with single quotes in the shell.
+Filters are JSON expressions used by `list --filter`, `search`, and `count`. Quote them with single quotes in the shell.
 
 Preferred syntax is an operator object:
 
