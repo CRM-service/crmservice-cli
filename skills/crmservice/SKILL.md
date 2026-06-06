@@ -85,6 +85,8 @@ crmservice list accounts --full -o json | jq '.data | length'
 - When the cap is hit, a truncation status is printed to **stderr** in the requested output format
 - Use `--verbose 1` to log page progress to stderr
 
+**Important:** truncation status is written to **stderr only**; exit code stays 0 and stdout contains only the returned records. After every `--all --max-results N` export, inspect stderr for a `truncated` status (or capture stderr separately) before treating the result as complete.
+
 ```bash
 # Preview without --all (single page)
 crmservice list accounts --page-size 20 -o json
