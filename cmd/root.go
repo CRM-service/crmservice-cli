@@ -15,10 +15,12 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:     "crmservice",
-	Short:   "CRM-service CLI API client",
-	Long:    `CRM-service CLI - A command-line tool for interacting with the CRM-service REST API.`,
-	Version: versionString(),
+	Use:           "crmservice",
+	Short:         "CRM-service CLI API client",
+	Long:          `CRM-service CLI - A command-line tool for interacting with the CRM-service REST API.`,
+	Version:       versionString(),
+	SilenceErrors: true,
+	SilenceUsage:  true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if err := initConfig(cmd); err != nil {
 			return err
@@ -29,7 +31,11 @@ var rootCmd = &cobra.Command{
 }
 
 func Execute() error {
-	if err := rootCmd.Execute(); err != nil {
+	executedCmd, err := rootCmd.ExecuteC()
+	if err != nil {
+		if executedCmd != nil {
+			setActiveOutputFormat(executedCmd)
+		}
 		var reported *output.ReportedError
 		if !errors.As(err, &reported) {
 			output.EmitError(err)

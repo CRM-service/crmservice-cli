@@ -470,7 +470,7 @@ func TestFieldsCmd(t *testing.T) {
 	})
 
 	t.Run("flags", func(t *testing.T) {
-		flags := []string{"fields", "output", "full", "force", "verbose"}
+		flags := []string{"output", "full", "force", "verbose"}
 		for _, name := range flags {
 			flag := cmd.Flags().Lookup(name)
 			if flag == nil {
@@ -584,6 +584,12 @@ func TestGetURLFromFlagOrEnv(t *testing.T) {
 		{
 			name:     "trailing slash removed",
 			flagURL:  "https://example.com/",
+			envURL:   "",
+			expected: "https://example.com/api/v1",
+		},
+		{
+			name:     "api/v1 with trailing slash preserved without duplicate suffix",
+			flagURL:  "https://example.com/api/v1/",
 			envURL:   "",
 			expected: "https://example.com/api/v1",
 		},
@@ -852,5 +858,28 @@ func TestBodyInputHasEmptyAttributes(t *testing.T) {
 	}
 	if bodyInputHasEmptyAttributes(&bodyInput{raw: true, body: map[string]interface{}{"data": map[string]interface{}{"attributes": map[string]interface{}{"name": "Acme"}}}}) {
 		t.Fatal("non-empty JSON:API attributes should not be empty")
+	}
+}
+
+func TestReadStdinBodyInputStripsJSONAPICreateID(t *testing.T) {
+	stdin := pipeWithContent(t, `{"data":{"type":"accounts","id":"client-id","attributes":{"name":"Test Corp"}}}`)
+
+	input, ok, err := readStdinBodyInput(stdin, "", "create")
+	if err != nil {
+		t.Fatalf("readStdinBodyInput() returned error: %v", err)
+	}
+	if !ok {
+		t.Fatal("readStdinBodyInput() ok = false, expected true")
+	}
+	body, ok := input.body.(map[string]interface{})
+	if !ok {
+		t.Fatalf("input.body = %T, expected map", input.body)
+	}
+	data, ok := body["data"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("body[data] = %T, expected map", body["data"])
+	}
+	if _, ok := data["id"]; ok {
+		t.Fatal("JSON:API create body should not keep client-provided id")
 	}
 }
