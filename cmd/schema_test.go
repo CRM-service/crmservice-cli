@@ -108,6 +108,64 @@ func TestValidateFilterJSONAgainstModuleAcceptsKnownField(t *testing.T) {
 	}
 }
 
+func TestValidateFilterJSONAgainstModuleAcceptsKnownBareField(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeTestResponse(t, w, `{"attributes":{"name":{"type":"string"},"account_type":{"type":"string"}}}`)
+	}))
+	defer server.Close()
+
+	oldCfg := cfg
+	cfg = &config.Config{
+		Cache: config.CacheConfig{
+			SchemaDir:   t.TempDir(),
+			TTLDays:     1,
+			AutoRefresh: true,
+		},
+		API: config.APIConfig{Timeout: 30},
+	}
+	t.Cleanup(func() { cfg = oldCfg })
+
+	url := server.URL + "/api/v1"
+	if err := validateFilterJSONAgainstModule("accounts", `{"account_type":"Customer"}`, url, "token", 0); err != nil {
+		t.Fatalf("validateFilterJSONAgainstModule() returned error: %v", err)
+	}
+}
+
+func TestValidateFilterJSONAgainstModuleValidatesRelatedBareField(t *testing.T) {
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		switch r.URL.Path {
+		case "/api/v1/schema/contacts":
+			writeTestResponse(t, w, `{"attributes":{"account_id":{"type":"relation","relationModule":"accounts"}}}`)
+		case "/api/v1/schema/accounts":
+			writeTestResponse(t, w, `{"attributes":{"account_type":{"type":"string"}}}`)
+		default:
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	oldCfg := cfg
+	cfg = &config.Config{
+		Cache: config.CacheConfig{
+			SchemaDir:   t.TempDir(),
+			TTLDays:     1,
+			AutoRefresh: true,
+		},
+		API: config.APIConfig{Timeout: 30},
+	}
+	t.Cleanup(func() { cfg = oldCfg })
+
+	url := server.URL + "/api/v1"
+	if err := validateFilterJSONAgainstModule("contacts", `{"account.account_type":"Customer"}`, url, "token", 0); err != nil {
+		t.Fatalf("validateFilterJSONAgainstModule() returned error: %v", err)
+	}
+	if requests != 2 {
+		t.Errorf("requests = %d, expected 2", requests)
+	}
+}
+
 func TestValidateFilterJSONAgainstModuleValidatesRelatedField(t *testing.T) {
 	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

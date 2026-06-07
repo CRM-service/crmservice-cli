@@ -1,5 +1,5 @@
 api:
-  url: "https://customer.example.com"
+  url: "customer.crmservice.fi"
   timeout: 30
 
 output:
@@ -13,4 +13,3 @@ cache:
 
 auth:
   token: "your-bearer-token-here"
-  type: "bearer"

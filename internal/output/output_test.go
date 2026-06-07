@@ -13,8 +13,6 @@ import (
 )
 
 func TestListResponseJSON(t *testing.T) {
-	t.Parallel()
-
 	resp := &api.Response{
 		Data: []interface{}{
 			map[string]interface{}{
@@ -36,8 +34,6 @@ func TestListResponseJSON(t *testing.T) {
 }
 
 func TestListResponseYAML(t *testing.T) {
-	t.Parallel()
-
 	resp := &api.Response{
 		Data: []interface{}{
 			map[string]interface{}{
@@ -101,8 +97,6 @@ func TestListResponseCSV(t *testing.T) {
 }
 
 func TestListResponseTable(t *testing.T) {
-	t.Parallel()
-
 	resp := &api.Response{
 		Data: []interface{}{
 			map[string]interface{}{
@@ -122,8 +116,6 @@ func TestListResponseTable(t *testing.T) {
 }
 
 func TestListResponseInvalidFormat(t *testing.T) {
-	t.Parallel()
-
 	resp := &api.Response{Data: []interface{}{}}
 	opts := Options{Format: "invalid"}
 
@@ -137,8 +129,6 @@ func TestListResponseInvalidFormat(t *testing.T) {
 }
 
 func TestListResponseEmptyData(t *testing.T) {
-	t.Parallel()
-
 	resp := &api.Response{Data: nil}
 	opts := Options{Format: "table"}
 
@@ -149,8 +139,6 @@ func TestListResponseEmptyData(t *testing.T) {
 }
 
 func TestItemResponseJSON(t *testing.T) {
-	t.Parallel()
-
 	resp := &api.SingleResponse{
 		Data: map[string]interface{}{
 			"id":         "1",
@@ -168,8 +156,6 @@ func TestItemResponseJSON(t *testing.T) {
 }
 
 func TestItemResponseYAML(t *testing.T) {
-	t.Parallel()
-
 	resp := &api.SingleResponse{
 		Data: map[string]interface{}{
 			"id":         "1",
@@ -229,8 +215,6 @@ func TestItemResponseCSV(t *testing.T) {
 }
 
 func TestItemResponseTable(t *testing.T) {
-	t.Parallel()
-
 	resp := &api.SingleResponse{
 		Data: map[string]interface{}{
 			"id":         "1",
@@ -248,8 +232,6 @@ func TestItemResponseTable(t *testing.T) {
 }
 
 func TestItemResponseEmptyData(t *testing.T) {
-	t.Parallel()
-
 	resp := &api.SingleResponse{Data: nil}
 	opts := Options{Format: "table"}
 
@@ -260,8 +242,6 @@ func TestItemResponseEmptyData(t *testing.T) {
 }
 
 func TestItemResponseInvalidFormat(t *testing.T) {
-	t.Parallel()
-
 	resp := &api.SingleResponse{Data: map[string]interface{}{}}
 	opts := Options{Format: "invalid"}
 
@@ -275,8 +255,6 @@ func TestItemResponseInvalidFormat(t *testing.T) {
 }
 
 func TestValidOutputFormat(t *testing.T) {
-	t.Parallel()
-
 	tests := []struct {
 		format string
 		valid  bool
@@ -301,8 +279,6 @@ func TestValidOutputFormat(t *testing.T) {
 }
 
 func TestOutputJSON(t *testing.T) {
-	t.Parallel()
-
 	testData := map[string]interface{}{"key": "value"}
 
 	err := outputJSON(testData, Options{})
@@ -312,8 +288,6 @@ func TestOutputJSON(t *testing.T) {
 }
 
 func TestOutputYAMLDataNil(t *testing.T) {
-	t.Parallel()
-
 	resp := &api.Response{Data: nil}
 
 	err := outputYAML(resp, Options{})
@@ -323,8 +297,6 @@ func TestOutputYAMLDataNil(t *testing.T) {
 }
 
 func TestOutputYAMLNonFull(t *testing.T) {
-	t.Parallel()
-
 	resp := &api.Response{
 		Data: []interface{}{
 			map[string]interface{}{
@@ -344,8 +316,6 @@ func TestOutputYAMLNonFull(t *testing.T) {
 }
 
 func TestOutputCSVDataNil(t *testing.T) {
-	t.Parallel()
-
 	resp := &api.Response{Data: nil}
 
 	err := outputCSV(resp, Options{})
@@ -355,8 +325,6 @@ func TestOutputCSVDataNil(t *testing.T) {
 }
 
 func TestOutputCSVEmptyRecords(t *testing.T) {
-	t.Parallel()
-
 	resp := &api.Response{Data: []interface{}{}}
 
 	err := outputCSV(resp, Options{})
@@ -366,8 +334,6 @@ func TestOutputCSVEmptyRecords(t *testing.T) {
 }
 
 func TestOutputTableDataNil(t *testing.T) {
-	t.Parallel()
-
 	resp := &api.Response{Data: nil}
 
 	err := outputTable(resp, Options{})
@@ -377,8 +343,6 @@ func TestOutputTableDataNil(t *testing.T) {
 }
 
 func TestOutputTableEmptyData(t *testing.T) {
-	t.Parallel()
-
 	resp := &api.Response{Data: []interface{}{}}
 
 	err := outputTable(resp, Options{})
@@ -388,8 +352,6 @@ func TestOutputTableEmptyData(t *testing.T) {
 }
 
 func TestExtractAttributes(t *testing.T) {
-	t.Parallel()
-
 	item := map[string]interface{}{
 		"id":         "1",
 		"type":       "test",
@@ -406,8 +368,6 @@ func TestExtractAttributes(t *testing.T) {
 }
 
 func TestExtractAttributesNoAttributes(t *testing.T) {
-	t.Parallel()
-
 	item := map[string]interface{}{
 		"id":   "1",
 		"type": "test",
@@ -420,8 +380,6 @@ func TestExtractAttributesNoAttributes(t *testing.T) {
 }
 
 func TestExtractAttributesNonMap(t *testing.T) {
-	t.Parallel()
-
 	result := extractAttributes("not a map")
 	if result != nil {
 		t.Errorf("Expected nil, got %v", result)
@@ -429,8 +387,6 @@ func TestExtractAttributesNonMap(t *testing.T) {
 }
 
 func TestPrintTable(t *testing.T) {
-	t.Parallel()
-
 	headers := []string{"Name", "Value"}
 	rows := [][]string{{"test", "123"}}
 
@@ -438,8 +394,6 @@ func TestPrintTable(t *testing.T) {
 }
 
 func TestPrintRow(t *testing.T) {
-	t.Parallel()
-
 	row := []string{"test", "value"}
 	colWidths := []int{4, 5}
 
@@ -447,16 +401,12 @@ func TestPrintRow(t *testing.T) {
 }
 
 func TestPrintSeparator(t *testing.T) {
-	t.Parallel()
-
 	colWidths := []int{4, 5}
 
 	printSeparator(colWidths)
 }
 
 func TestExtractCSVRecords(t *testing.T) {
-	t.Parallel()
-
 	data := []interface{}{
 		map[string]interface{}{
 			"id":         "1",
@@ -475,8 +425,6 @@ func TestExtractCSVRecords(t *testing.T) {
 }
 
 func TestExtractCSVRecordsNonSlice(t *testing.T) {
-	t.Parallel()
-
 	records, err := extractCSVRecords("not a slice", nil, false, nil)
 	if err != nil {
 		t.Errorf("extractCSVRecords failed: %v", err)
@@ -487,8 +435,6 @@ func TestExtractCSVRecordsNonSlice(t *testing.T) {
 }
 
 func TestExtractCSVRecordsEmpty(t *testing.T) {
-	t.Parallel()
-
 	data := []interface{}{}
 	records, err := extractCSVRecords(data, nil, false, nil)
 	if err != nil {
@@ -500,8 +446,6 @@ func TestExtractCSVRecordsEmpty(t *testing.T) {
 }
 
 func TestOutputTableDataNonSlice(t *testing.T) {
-	t.Parallel()
-
 	err := outputTableData("not a slice", nil, false, nil)
 	if err != nil {
 		t.Errorf("outputTableData failed: %v", err)
@@ -509,8 +453,6 @@ func TestOutputTableDataNonSlice(t *testing.T) {
 }
 
 func TestOutputTableDataEmpty(t *testing.T) {
-	t.Parallel()
-
 	err := outputTableData([]interface{}{}, nil, false, nil)
 	if err != nil {
 		t.Errorf("outputTableData failed: %v", err)
@@ -518,8 +460,6 @@ func TestOutputTableDataEmpty(t *testing.T) {
 }
 
 func TestOutputTableDataFull(t *testing.T) {
-	t.Parallel()
-
 	data := []interface{}{
 		map[string]interface{}{
 			"id":         "1",
@@ -535,8 +475,6 @@ func TestOutputTableDataFull(t *testing.T) {
 }
 
 func TestOutputTableDataWithFields(t *testing.T) {
-	t.Parallel()
-
 	data := []interface{}{
 		map[string]interface{}{
 			"id":         "1",
@@ -552,8 +490,6 @@ func TestOutputTableDataWithFields(t *testing.T) {
 }
 
 func TestOutputTableItemDataNil(t *testing.T) {
-	t.Parallel()
-
 	err := outputTableItemData(nil, nil, false, nil)
 	if err != nil {
 		t.Errorf("outputTableItemData failed: %v", err)
@@ -561,8 +497,6 @@ func TestOutputTableItemDataNil(t *testing.T) {
 }
 
 func TestOutputTableItemDataNonMap(t *testing.T) {
-	t.Parallel()
-
 	err := outputTableItemData("not a map", nil, false, nil)
 	if err != nil {
 		t.Errorf("outputTableItemData failed: %v", err)
@@ -570,8 +504,6 @@ func TestOutputTableItemDataNonMap(t *testing.T) {
 }
 
 func TestOutputTableItemDataWithAttributes(t *testing.T) {
-	t.Parallel()
-
 	data := map[string]interface{}{
 		"id":         "1",
 		"type":       "test",
@@ -585,34 +517,31 @@ func TestOutputTableItemDataWithAttributes(t *testing.T) {
 }
 
 func TestErrorResponseAPIError(t *testing.T) {
-	t.Parallel()
-
 	apiErr := &api.Error{
 		Status:  404,
 		Body:    []byte("Not Found"),
 		Message: "Resource not found",
 	}
 
-	err := ErrorResponse(apiErr)
-	if err == nil {
-		t.Error("Expected error to be returned")
-	}
+	_ = captureStderr(t, func() {
+		err := ErrorResponse(apiErr)
+		if err == nil {
+			t.Error("Expected error to be returned")
+		}
+	})
 }
 
 func TestErrorResponseRegularError(t *testing.T) {
-	t.Parallel()
-
-	err := errors.New("regular error")
-
-	result := ErrorResponse(err)
-	if result == nil {
-		t.Error("Expected error to be returned")
-	}
+	_ = captureStderr(t, func() {
+		err := errors.New("regular error")
+		result := ErrorResponse(err)
+		if result == nil {
+			t.Error("Expected error to be returned")
+		}
+	})
 }
 
 func TestLongValues(t *testing.T) {
-	t.Parallel()
-
 	longValue := strings.Repeat("x", 1000)
 
 	resp := &api.Response{
@@ -634,8 +563,6 @@ func TestLongValues(t *testing.T) {
 }
 
 func TestMixedTypes(t *testing.T) {
-	t.Parallel()
-
 	resp := &api.Response{
 		Data: []interface{}{
 			map[string]interface{}{

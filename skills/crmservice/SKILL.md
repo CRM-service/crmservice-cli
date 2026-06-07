@@ -37,12 +37,15 @@ printf '{"id":"123","field":"value"}\n' | crmservice bulk-update <module> --summ
 - **stdout** = data only (records, validation results, bulk summary)
 - **stderr** = truncation status, structured errors (matches `-o`)
 - `list` / `search` / `count` → validate filter syntax and schema field names before API calls
+- **Filters** → always use explicit operator syntax (`{"$eq":["field","value"]}`, `$and`, `$cts`, …). Bare `{"field":"value"}` is human shorthand only; agents must not use it
 - `filter validate` → optional standalone check; stdout only; exit 0 = valid, non-zero = invalid
 - `--all --max-results N` → truncation status on **stderr**; exit code stays 0
 - `bulk-*` production writes → `--summary -o json`; with `--continue-on-error`, check `failed > 0`
 - `skill install --check` → stdout only; exit 0 = up to date; non-zero = missing or stale
 
-Recommended env defaults: `CRMSERVICE_OUTPUT_FORMAT=json`, `CRMSERVICE_PAGE_SIZE=100`. After upgrading the CLI, run `crmservice skill install --check -o json`; if not up to date, run `crmservice skill install`.
+API host: `customer.crmservice.fi` (see [references/configuration.md](references/configuration.md) for all config keys, environment variables, and global flags).
+
+Recommended env defaults: `CRMSERVICE_API_URL=customer.crmservice.fi`, `CRMSERVICE_OUTPUT_FORMAT=json`, `CRMSERVICE_PAGE_SIZE=100`. After upgrading the CLI, run `crmservice skill install --check -o json`; if not up to date, run `crmservice skill install`.
 
 ## Commands
 

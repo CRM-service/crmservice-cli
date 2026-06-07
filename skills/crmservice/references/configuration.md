@@ -1,5 +1,13 @@
 # Configuration and Setup
 
+## API host
+
+Use the CRM hostname, for example `customer.crmservice.fi`, in `api.url`, `CRMSERVICE_API_URL`, and `--url`.
+
+## Precedence
+
+For every setting: **command-line flags** override **environment variables**, which override the **config file**.
+
 ## Config file
 
 By default, the CLI reads `config.yaml` from the operating system's user config directory:
@@ -8,24 +16,76 @@ By default, the CLI reads `config.yaml` from the operating system's user config 
 - macOS: `~/Library/Application Support/crmservice/config.yaml`
 - Windows: `%AppData%\crmservice\config.yaml`
 
-Use `--config` only to override this default path.
+Use `--config` to override this path.
+
+```yaml
+api:
+  url: "customer.crmservice.fi"
+  timeout: 30
+
+output:
+  format: "table"
+  page_size: 20
+
+cache:
+  schema_dir: ""
+  ttl_days: 24
+  auto_refresh: true
+
+auth:
+  token: "your-bearer-token"
+```
+
+| Key | Description |
+|-----|-------------|
+| `api.url` | CRM host (`customer.crmservice.fi`) |
+| `api.timeout` | Request timeout in seconds |
+| `output.format` | Default output format: `table`, `json`, `yaml`, `jsonl`, or `csv` |
+| `output.page_size` | Default page size for paginated commands |
+| `cache.schema_dir` | Schema cache directory (`~` paths are expanded; empty uses OS default) |
+| `cache.ttl_days` | Schema cache TTL in days |
+| `cache.auto_refresh` | Refresh cache when missing or expired |
+| `auth.token` | Bearer token |
 
 ## Environment variables
 
-- `CRMSERVICE_API_URL` — API base URL
-- `CRMSERVICE_AUTH_TOKEN` — Bearer token for authentication
-- `CRMSERVICE_OUTPUT_FORMAT` — Default output format (`table`, `json`, `yaml`, `jsonl`, or `csv`)
-- `CRMSERVICE_PAGE_SIZE` — Default page size for paginated commands
-- `CRMSERVICE_TIMEOUT` — Request timeout in seconds
-- `CRMSERVICE_CACHE_DIR` — Schema cache directory (useful in CI and agent sandboxes)
+| Variable | Description |
+|----------|-------------|
+| `CRMSERVICE_API_URL` | CRM host (`customer.crmservice.fi`) |
+| `CRMSERVICE_AUTH_TOKEN` | Bearer token |
+| `CRMSERVICE_OUTPUT_FORMAT` | Default output format |
+| `CRMSERVICE_PAGE_SIZE` | Default page size |
+| `CRMSERVICE_TIMEOUT` | Request timeout in seconds |
+| `CRMSERVICE_CACHE_DIR` | Schema cache directory |
+| `CRMSERVICE_CACHE_TTL_DAYS` | Schema cache TTL in days |
+| `CRMSERVICE_CACHE_AUTO_REFRESH` | `true` or `false` |
 
 Authentication must always be available via config file, environment variable, or `--token`.
+
+## Global command-line flags
+
+Available on every command:
+
+| Flag | Description |
+|------|-------------|
+| `--config` | Config file path |
+| `--url` | CRM host (overrides config) |
+| `--token` | Bearer token (overrides config) |
+| `--timeout` | Request timeout in seconds (overrides config) |
+| `-o`, `--output` | Default output format (overrides config) |
+| `--page-size` | Default page size (overrides config) |
+| `--cache-dir` | Schema cache directory (overrides config) |
+| `--cache-ttl-days` | Schema cache TTL in days (overrides config) |
+| `--cache-auto-refresh` | Refresh schema cache automatically (overrides config) |
+
+Individual commands add their own flags (for example `--filter`, `--all`, `--verbose`, `--full`). Command-level `-o` / `--output` overrides the global default when set.
 
 ## Agent defaults
 
 For automated agent work, set these so every command uses machine-readable output and sensible pagination:
 
 ```bash
+export CRMSERVICE_API_URL=customer.crmservice.fi
 export CRMSERVICE_OUTPUT_FORMAT=json
 export CRMSERVICE_PAGE_SIZE=100
 ```
@@ -33,17 +93,6 @@ export CRMSERVICE_PAGE_SIZE=100
 Always pass `-o json` or `-o jsonl` explicitly when a specific format matters (for example JSONL pipelines). `CRMSERVICE_OUTPUT_FORMAT` applies only when `-o` / `--output` is not given.
 
 The CLI default output is `table`, which is unsuitable for agent parsing.
-
-## Global flags
-
-All commands support:
-
-- `--config string` — Config file path
-- `--token string` — Bearer token (overrides config)
-- `--url string` — API base URL (overrides config)
-- `--verbose int` — 0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed logging
-
-Most data commands also support `-o, --output` and `--full`.
 
 ## Preflight (`doctor`)
 

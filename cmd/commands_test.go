@@ -532,7 +532,7 @@ func TestModulesCmd(t *testing.T) {
 	})
 
 	t.Run("flags", func(t *testing.T) {
-		flags := []string{"url", "output", "full", "verbose"}
+		flags := []string{"output", "full", "verbose"}
 		for _, name := range flags {
 			flag := cmd.Flags().Lookup(name)
 			if flag == nil {
@@ -564,10 +564,16 @@ func TestGetURLFromFlagOrEnv(t *testing.T) {
 			expected: "https://env.example.com/api/v1",
 		},
 		{
-			name:     "http converted to https",
+			name:     "http scheme preserved",
 			flagURL:  "http://example.com",
 			envURL:   "",
-			expected: "https://example.com/api/v1",
+			expected: "http://example.com/api/v1",
+		},
+		{
+			name:     "bare hostname uses https",
+			flagURL:  "customer.crmservice.fi",
+			envURL:   "",
+			expected: "https://customer.crmservice.fi/api/v1",
 		},
 		{
 			name:     "api/v1 suffix added",
@@ -592,11 +598,50 @@ func TestGetURLFromFlagOrEnv(t *testing.T) {
 				t.Errorf("Failed to set flag: %v", err)
 			}
 
-			result := getURLFromFlagOrEnv(cmd)
+			result, err := getURLFromFlagOrEnv(cmd)
+			if err != nil {
+				t.Fatalf("getURLFromFlagOrEnv() returned error: %v", err)
+			}
 			if !strings.HasPrefix(result, tc.expected) {
 				t.Errorf("getURLFromFlagOrEnv() = %q, expected %q", result, tc.expected)
 			}
 		})
+	}
+}
+
+func TestGetURLFromFlagOrEnvMissingURL(t *testing.T) {
+	oldCfg := cfg
+	cfg = &config.Config{}
+	t.Cleanup(func() { cfg = oldCfg })
+	t.Setenv("CRMSERVICE_API_URL", "")
+
+	cmd := &cobra.Command{}
+	cmd.Flags().String("url", "", "")
+	if _, err := getURLFromFlagOrEnv(cmd); err == nil {
+		t.Fatal("getURLFromFlagOrEnv() error = nil, expected error")
+	}
+}
+
+func TestModulesCommandHTTPError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		if _, err := w.Write([]byte(`{"errors":[{"detail":"unauthorized"}]}`)); err != nil {
+			t.Errorf("Write() returned error: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	oldCfg := cfg
+	cfg = &config.Config{
+		API:  config.APIConfig{URL: server.URL + "/api/v1", Timeout: 5},
+		Auth: config.AuthConfig{Token: "token"},
+	}
+	t.Cleanup(func() { cfg = oldCfg })
+
+	cmd := modulesCmd()
+	cmd.SetArgs([]string{"-o", "json"})
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("Execute() error = nil, expected API error")
 	}
 }
 
@@ -626,7 +671,11 @@ func TestConfigFallbacks(t *testing.T) {
 	cmd.Flags().StringP("output", "o", "table", "")
 	cmd.Flags().Int("page-size", 20, "")
 
-	if got := getURLFromFlagOrEnv(cmd); got != "https://config.example.com/api/v1" {
+	got, err := getURLFromFlagOrEnv(cmd)
+	if err != nil {
+		t.Fatalf("getURLFromFlagOrEnv() returned error: %v", err)
+	}
+	if got != "https://config.example.com/api/v1" {
 		t.Errorf("getURLFromFlagOrEnv() = %q", got)
 	}
 
@@ -788,5 +837,20 @@ func TestReadStdinBodyInputValidatesJSONAPIUpdateID(t *testing.T) {
 	}
 	if err == nil {
 		t.Fatal("readStdinBodyInput() error = nil, expected id mismatch error")
+	}
+}
+
+func TestBodyInputHasEmptyAttributes(t *testing.T) {
+	if !bodyInputHasEmptyAttributes(&bodyInput{body: map[string]interface{}{}}) {
+		t.Fatal("empty flat attributes should be empty")
+	}
+	if bodyInputHasEmptyAttributes(&bodyInput{body: map[string]interface{}{"name": "Acme"}}) {
+		t.Fatal("non-empty flat attributes should not be empty")
+	}
+	if !bodyInputHasEmptyAttributes(&bodyInput{raw: true, body: map[string]interface{}{"data": map[string]interface{}{"attributes": map[string]interface{}{}}}}) {
+		t.Fatal("empty JSON:API attributes should be empty")
+	}
+	if bodyInputHasEmptyAttributes(&bodyInput{raw: true, body: map[string]interface{}{"data": map[string]interface{}{"attributes": map[string]interface{}{"name": "Acme"}}}}) {
+		t.Fatal("non-empty JSON:API attributes should not be empty")
 	}
 }

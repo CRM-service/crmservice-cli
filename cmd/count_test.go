@@ -38,6 +38,34 @@ func TestOutputCountResultJSON(t *testing.T) {
 	}
 }
 
+func TestOutputCountResultTableWithFilter(t *testing.T) {
+	filter := map[string]interface{}{
+		"$eq": []interface{}{"account_type", "Customer"},
+	}
+	out := captureStdout(t, func() {
+		if err := outputCountResult("accounts", 3, filter, "table"); err != nil {
+			t.Fatalf("outputCountResult() returned error: %v", err)
+		}
+	})
+
+	wantFilter := `{"$eq":["account_type","Customer"]}`
+	if !strings.Contains(out, "filter") || !strings.Contains(out, wantFilter) {
+		t.Fatalf("table output = %q, expected filter row with %s", out, wantFilter)
+	}
+}
+
+func TestOutputCountResultTableWithoutFilter(t *testing.T) {
+	out := captureStdout(t, func() {
+		if err := outputCountResult("accounts", 3, nil, "table"); err != nil {
+			t.Fatalf("outputCountResult() returned error: %v", err)
+		}
+	})
+
+	if strings.Contains(out, "filter") {
+		t.Fatalf("table output = %q, expected no filter row", out)
+	}
+}
+
 func TestRunCountCommandRejectsBothFilterSources(t *testing.T) {
 	cmd := countCmd()
 	args := []string{"accounts", `{"$eq":["name","Acme"]}`}

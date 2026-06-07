@@ -8,6 +8,8 @@ Use field **names** from `crmservice fields <module>` (not labels). Related fiel
 
 ## Preferred expression shape
 
+**Agents must use explicit operator syntax** for every filter. Do not use bare `{"field":"value"}` shorthand in agent workflows.
+
 Each operator is a JSON object whose key is the operator and whose value is an array of arguments:
 
 ```json
@@ -19,6 +21,16 @@ Combine expressions with logical operators:
 ```json
 {"$and":[{"$eq":["account_type","Customer"]},{"$cts":["name","Acme"]}]}
 ```
+
+## Equality shorthand (humans only)
+
+A filter object may use bare field keys as a shortcut for a single equals comparison:
+
+```json
+{"account_type":"Customer"}
+```
+
+This is equivalent to `{"$eq":["account_type","Customer"]}` when the API accepts it. `list`, `search`, `count`, and `filter validate <module>` validate bare field names against the module schema (including one-level relation paths like `account.account_type`). Use explicit operators for combined conditions, non-equals comparisons, null checks, and agent-generated filters.
 
 ## Operators
 

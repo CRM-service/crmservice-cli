@@ -32,8 +32,6 @@ func captureStderr(t *testing.T, fn func()) string {
 }
 
 func TestStderrErrorJSONFormat(t *testing.T) {
-	t.Parallel()
-
 	stderr := captureStderr(t, func() {
 		if err := StderrError("json", errors.New("test failure")); err == nil {
 			t.Fatal("StderrError() error = nil, expected error")
@@ -54,8 +52,6 @@ func TestStderrErrorJSONFormat(t *testing.T) {
 }
 
 func TestStderrErrorAPIErrorJSONFormat(t *testing.T) {
-	t.Parallel()
-
 	apiErr := &api.Error{Status: 404, Message: "Not found"}
 	stderr := captureStderr(t, func() {
 		if err := StderrError("json", apiErr); err == nil {

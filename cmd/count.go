@@ -68,7 +68,10 @@ func runCountCommand(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	url := getURLFromFlagOrEnv(cmd)
+	url, err := getURLFromFlagOrEnv(cmd)
+	if err != nil {
+		return err
+	}
 
 	if filterJSON != "" {
 		if err := validateModuleFilter(module, filterJSON, url, token, verbose); err != nil {
@@ -109,6 +112,13 @@ func outputCountResult(module string, total int, filter map[string]interface{}, 
 	if outputFormat == "table" {
 		fmt.Printf("%-20s | %v\n", "module", module)
 		fmt.Printf("%-20s | %v\n", "total", total)
+		if len(filter) > 0 {
+			filterJSON, err := json.Marshal(filter)
+			if err != nil {
+				return fmt.Errorf("failed to encode filter: %w", err)
+			}
+			fmt.Printf("%-20s | %s\n", "filter", filterJSON)
+		}
 		return nil
 	}
 

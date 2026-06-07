@@ -32,9 +32,6 @@ func normalizeAPIURL(url string) string {
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		url = "https://" + url
 	}
-	if strings.HasPrefix(url, "http://") {
-		url = "https://" + strings.TrimPrefix(url, "http://")
-	}
 
 	if !strings.HasSuffix(url, "/api/v1") {
 		url = strings.TrimSuffix(url, "/") + "/api/v1"
@@ -43,23 +40,24 @@ func normalizeAPIURL(url string) string {
 	return strings.TrimSuffix(url, "/")
 }
 
-func getAPIURL() string {
-	url := os.Getenv("CRMSERVICE_API_URL")
-	if url == "" && cfg != nil {
-		url = cfg.API.URL
+func getURLFromFlagOrEnv(cmd *cobra.Command) (string, error) {
+	url := ""
+	if cmd.Flags().Lookup("url") != nil {
+		var err error
+		url, err = cmd.Flags().GetString("url")
+		if err != nil {
+			return "", err
+		}
 	}
 	if url == "" {
-		output.EmitError(fmt.Errorf("API URL not provided. Set CRMSERVICE_API_URL environment variable, config api.url, or use --url flag"))
-		os.Exit(1)
-	}
-
-	return normalizeAPIURL(url)
-}
-
-func getURLFromFlagOrEnv(cmd *cobra.Command) string {
-	url, err := cmd.Flags().GetString("url")
-	if err != nil {
-		return ""
+		root := cmd.Root()
+		if root != nil && root.PersistentFlags().Lookup("url") != nil {
+			var err error
+			url, err = root.PersistentFlags().GetString("url")
+			if err != nil {
+				return "", err
+			}
+		}
 	}
 	if url == "" {
 		url = os.Getenv("CRMSERVICE_API_URL")
@@ -68,10 +66,10 @@ func getURLFromFlagOrEnv(cmd *cobra.Command) string {
 		url = cfg.API.URL
 	}
 	if url == "" {
-		url = getAPIURL()
+		return "", fmt.Errorf("API URL not provided. Set CRMSERVICE_API_URL environment variable, config api.url, or use --url flag")
 	}
 
-	return normalizeAPIURL(url)
+	return normalizeAPIURL(url), nil
 }
 
 func getTokenFromFlagEnvConfig(cmd *cobra.Command) (string, error) {
@@ -238,6 +236,26 @@ func flatRecordAttributes(record map[string]interface{}, id, operation string) (
 		attrs[key] = value
 	}
 	return attrs, nil
+}
+
+func bodyInputHasEmptyAttributes(input *bodyInput) bool {
+	if input == nil {
+		return true
+	}
+	if !input.raw {
+		attrs, ok := input.body.(map[string]interface{})
+		return !ok || len(attrs) == 0
+	}
+	body, ok := input.body.(map[string]interface{})
+	if !ok {
+		return true
+	}
+	data, ok := body["data"].(map[string]interface{})
+	if !ok {
+		return true
+	}
+	attrs, ok := data["attributes"].(map[string]interface{})
+	return ok && len(attrs) == 0
 }
 
 func readStdinJSONAPIRequest(stdin *os.File) (map[string]interface{}, bool, error) {
@@ -431,7 +449,10 @@ func runListCommand(cmd *cobra.Command, args []string, filterOverride string) er
 		return err
 	}
 
-	url := getURLFromFlagOrEnv(cmd)
+	url, err := getURLFromFlagOrEnv(cmd)
+	if err != nil {
+		return err
+	}
 
 	if filter != "" {
 		if err := validateModuleFilter(module, filter, url, token, verbose); err != nil {
@@ -530,7 +551,10 @@ func getCmd() *cobra.Command {
 				return err
 			}
 
-			url := getURLFromFlagOrEnv(cmd)
+			url, err := getURLFromFlagOrEnv(cmd)
+			if err != nil {
+				return err
+			}
 
 			apiClient := api.NewClient(url, token)
 			apiClient.Verbose = verbose
@@ -604,6 +628,9 @@ func createCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if bodyInputHasEmptyAttributes(input) {
+				return fmt.Errorf("no fields provided; use --field or pass JSON via stdin")
+			}
 
 			if dryRun {
 				body, err := singleRecordRequestBody(module, "", "create", input)
@@ -618,7 +645,10 @@ func createCmd() *cobra.Command {
 				return err
 			}
 
-			url := getURLFromFlagOrEnv(cmd)
+			url, err := getURLFromFlagOrEnv(cmd)
+			if err != nil {
+				return err
+			}
 
 			apiClient := api.NewClient(url, token)
 			apiClient.Verbose = verbose
@@ -688,6 +718,9 @@ func updateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if bodyInputHasEmptyAttributes(input) {
+				return fmt.Errorf("no fields provided; use --field or pass JSON via stdin")
+			}
 
 			if dryRun {
 				body, err := singleRecordRequestBody(module, id, "update", input)
@@ -702,7 +735,10 @@ func updateCmd() *cobra.Command {
 				return err
 			}
 
-			url := getURLFromFlagOrEnv(cmd)
+			url, err := getURLFromFlagOrEnv(cmd)
+			if err != nil {
+				return err
+			}
 
 			apiClient := api.NewClient(url, token)
 			apiClient.Verbose = verbose
@@ -759,7 +795,10 @@ func deleteCmd() *cobra.Command {
 				return err
 			}
 
-			url := getURLFromFlagOrEnv(cmd)
+			url, err := getURLFromFlagOrEnv(cmd)
+			if err != nil {
+				return err
+			}
 
 			apiClient := api.NewClient(url, token)
 			apiClient.Verbose = verbose
@@ -812,29 +851,20 @@ func fieldsCmd() *cobra.Command {
 				return err
 			}
 
-			url := getURLFromFlagOrEnv(cmd)
+			url, err := getURLFromFlagOrEnv(cmd)
+			if err != nil {
+				return err
+			}
 
 			body, err := getSchemaBody(module, url, token, verbose, force)
 			if err != nil {
 				return err
 			}
 
-			type RawAttributeData struct {
-				Type           string      `json:"type"`
-				Size           float64     `json:"size,omitempty"`
-				Scale          float64     `json:"scale,omitempty"`
-				Nullable       bool        `json:"nullable,omitempty"`
-				DefaultValue   interface{} `json:"defaultValue,omitempty"`
-				RelationModule string      `json:"relationModule,omitempty"`
-				Label          string      `json:"label,omitempty"`
-			}
-
 			var rawResp map[string]interface{}
 			if err := json.Unmarshal(body, &rawResp); err != nil {
 				return output.ErrorResponse(err)
 			}
-
-			var schemaAttrs []map[string]interface{}
 
 			var primaryKey []string
 			if pkRaw, ok := rawResp["primary-key"].([]interface{}); ok {
@@ -845,89 +875,11 @@ func fieldsCmd() *cobra.Command {
 				}
 			}
 
-			if attrsObj, ok := rawResp["attributes"].(map[string]interface{}); ok {
-				for name, attrData := range attrsObj {
-					if attrMap, ok := attrData.(map[string]interface{}); ok {
-						attrData := RawAttributeData{}
-						if typeVal, ok := attrMap["type"].(string); ok {
-							attrData.Type = typeVal
-						}
-						if sizeVal, ok := attrMap["size"].(float64); ok {
-							attrData.Size = sizeVal
-						}
-						if scaleVal, ok := attrMap["scale"].(float64); ok {
-							attrData.Scale = scaleVal
-						}
-						if nullableVal, ok := attrMap["nullable"].(bool); ok {
-							attrData.Nullable = nullableVal
-						}
-						if defaultValueVal, ok := attrMap["defaultValue"]; ok {
-							attrData.DefaultValue = defaultValueVal
-						}
-						if relMod, ok := attrMap["relationModule"].(string); ok {
-							attrData.RelationModule = relMod
-						}
-						if label, ok := attrMap["label"].(string); ok {
-							attrData.Label = label
-						}
-
-						attr := map[string]interface{}{
-							"name":         name,
-							"type":         attrData.Type,
-							"size":         attrData.Size,
-							"scale":        attrData.Scale,
-							"nullable":     attrData.Nullable,
-							"defaultValue": attrData.DefaultValue,
-							"label":        attrData.Label,
-						}
-						if attrData.RelationModule != "" {
-							attr["relationModule"] = attrData.RelationModule
-						}
-						schemaAttrs = append(schemaAttrs, attr)
-					}
-				}
+			var attrsObj map[string]interface{}
+			if rawAttrs, ok := rawResp["attributes"].(map[string]interface{}); ok {
+				attrsObj = rawAttrs
 			}
-
-			var fieldList []map[string]interface{}
-			for _, attr := range schemaAttrs {
-				field := map[string]interface{}{
-					"name": attr["name"],
-					"type": attr["type"],
-				}
-				if size, ok := attr["size"].(float64); ok && size > 0 {
-					field["size"] = size
-				}
-				if scale, ok := attr["scale"].(float64); ok && scale > 0 {
-					field["scale"] = scale
-				}
-				if nullable, ok := attr["nullable"].(bool); ok {
-					field["nullable"] = nullable
-				}
-				if defaultValue, ok := attr["defaultValue"]; ok && defaultValue != nil {
-					field["defaultValue"] = defaultValue
-				}
-				if label, ok := attr["label"].(string); ok && label != "" {
-					field["label"] = label
-				}
-				if relMod, ok := attr["relationModule"].(string); ok && relMod != "" {
-					field["extras"] = relMod
-				}
-				fieldList = append(fieldList, field)
-			}
-
-			// Annotate each field record with "primary": true for primary key fields.
-			// This moves the primary key information into the structured output
-			// so that machine consumers (jq etc.) can use it directly without
-			// special parsing or prefix stripping.
-			pkSet := make(map[string]bool, len(primaryKey))
-			for _, pk := range primaryKey {
-				pkSet[pk] = true
-			}
-			for _, f := range fieldList {
-				if name, ok := f["name"].(string); ok && pkSet[name] {
-					f["primary"] = true
-				}
-			}
+			fieldList := fieldListFromSchemaAttributes(attrsObj, primaryKey)
 
 			// Only print the human-readable "Primary Key: ..." line for table output.
 			// For json/jsonl/yaml/csv (used heavily by agents and scripts) we keep
@@ -944,7 +896,7 @@ func fieldsCmd() *cobra.Command {
 				// details the server knows about, etc.). This only affects
 				// structured output formats; table still gets a nice view.
 				if outputFormat != "table" {
-					data = rawResp
+					data = schemaResponseWithSortedAttributes(rawResp)
 				}
 			}
 

@@ -53,9 +53,16 @@ const filterReference = `CRM-service filter language
 
 Filters are JSON expressions passed to list --filter or as the positional argument to search.
 
-Preferred forms:
+Preferred forms (use these in scripts and agent workflows):
   {"$eq":["account_type","Customer"]}
   {"$and":[{"$eq":["account_type","Customer"]},{"$cts":["name","Acme"]}]}
+
+Equality shorthand (human convenience only; same as $eq for a single field):
+  {"account_type":"Customer"}
+
+Bare field keys are checked against the module schema when list, search, count,
+or filter validate <module> runs. Prefer explicit operators for anything beyond
+a single equals comparison.
 
 Logical operators:
   $and, $or, $nor    array of filter expressions
@@ -134,7 +141,10 @@ func filterCmd() *cobra.Command {
 				return outputFilterValidateResult(outputFormat, filterValidateSuccess("", filterJSON, false))
 			}
 
-			url := getURLFromFlagOrEnv(cmd)
+			url, err := getURLFromFlagOrEnv(cmd)
+			if err != nil {
+				return err
+			}
 			token, err := getRequiredTokenFromFlagEnvConfig(cmd)
 			if err != nil {
 				return err
@@ -184,6 +194,8 @@ func validateFilterExpression(expr interface{}, path string) error {
 					return err
 				}
 			} else {
+				// Bare field keys are equality shorthand, e.g. {"account_type":"Customer"}.
+				// Field names are validated against the module schema separately.
 				if strings.TrimSpace(key) == "" {
 					return fmt.Errorf("%s: field name must not be empty", path)
 				}

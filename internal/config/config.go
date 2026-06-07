@@ -34,7 +34,6 @@ type CacheConfig struct {
 
 type AuthConfig struct {
 	Token string `yaml:"token"`
-	Type  string `yaml:"type"`
 }
 
 func defaultConfig() *Config {
@@ -51,9 +50,7 @@ func defaultConfig() *Config {
 			TTLDays:     24,
 			AutoRefresh: true,
 		},
-		Auth: AuthConfig{
-			Type: "bearer",
-		},
+		Auth: AuthConfig{},
 	}
 }
 
@@ -79,7 +76,7 @@ func LoadConfig(configFile string) (*Config, error) {
 	}
 
 	applyEnv(config)
-	expandPaths(config)
+	ExpandPaths(config)
 
 	return config, nil
 }
@@ -123,9 +120,20 @@ func applyEnv(config *Config) {
 	if value := os.Getenv("CRMSERVICE_CACHE_DIR"); value != "" {
 		config.Cache.SchemaDir = value
 	}
+	if value := os.Getenv("CRMSERVICE_CACHE_TTL_DAYS"); value != "" {
+		if ttlDays, err := strconv.Atoi(value); err == nil {
+			config.Cache.TTLDays = ttlDays
+		}
+	}
+	if value := os.Getenv("CRMSERVICE_CACHE_AUTO_REFRESH"); value != "" {
+		if autoRefresh, err := strconv.ParseBool(value); err == nil {
+			config.Cache.AutoRefresh = autoRefresh
+		}
+	}
 }
 
-func expandPaths(config *Config) {
+// ExpandPaths resolves home-directory shortcuts in config paths.
+func ExpandPaths(config *Config) {
 	config.Cache.SchemaDir = expandHomePath(config.Cache.SchemaDir)
 }
 
@@ -164,10 +172,6 @@ func (c *Config) GetSanitizedAPIURL() string {
 
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		url = "https://" + url
-	}
-
-	if strings.HasPrefix(url, "http://") {
-		url = "https://" + strings.TrimPrefix(url, "http://")
 	}
 
 	return strings.TrimSuffix(url, "/")

@@ -35,9 +35,6 @@ func TestLoadConfigDefaults(t *testing.T) {
 	if !cfg.Cache.AutoRefresh {
 		t.Error("Cache.AutoRefresh = false, expected true")
 	}
-	if cfg.Auth.Type != "bearer" {
-		t.Errorf("Auth.Type = %q, expected bearer", cfg.Auth.Type)
-	}
 }
 
 func TestLoadConfigYAML(t *testing.T) {
@@ -56,7 +53,6 @@ cache:
   auto_refresh: false
 auth:
   token: "token-from-file"
-  type: "bearer"
 `)
 	if err := os.WriteFile(path, content, 0o600); err != nil {
 		t.Fatalf("WriteFile() returned error: %v", err)
@@ -181,6 +177,8 @@ func TestLoadConfigEnvOverrides(t *testing.T) {
 	t.Setenv("CRMSERVICE_PAGE_SIZE", "99")
 	t.Setenv("CRMSERVICE_TIMEOUT", "45")
 	t.Setenv("CRMSERVICE_CACHE_DIR", "/tmp/env-cache")
+	t.Setenv("CRMSERVICE_CACHE_TTL_DAYS", "3")
+	t.Setenv("CRMSERVICE_CACHE_AUTO_REFRESH", "false")
 
 	cfg, err := LoadConfig("")
 	if err != nil {
@@ -201,6 +199,12 @@ func TestLoadConfigEnvOverrides(t *testing.T) {
 	}
 	if cfg.Cache.SchemaDir != "/tmp/env-cache" {
 		t.Errorf("Cache.SchemaDir = %q", cfg.Cache.SchemaDir)
+	}
+	if cfg.Cache.TTLDays != 3 {
+		t.Errorf("Cache.TTLDays = %d", cfg.Cache.TTLDays)
+	}
+	if cfg.Cache.AutoRefresh {
+		t.Error("Cache.AutoRefresh = true, expected false")
 	}
 }
 
@@ -237,6 +241,8 @@ func clearEnv(t *testing.T) {
 		"CRMSERVICE_PAGE_SIZE",
 		"CRMSERVICE_TIMEOUT",
 		"CRMSERVICE_CACHE_DIR",
+		"CRMSERVICE_CACHE_TTL_DAYS",
+		"CRMSERVICE_CACHE_AUTO_REFRESH",
 	} {
 		t.Setenv(key, "")
 	}
