@@ -79,7 +79,7 @@ func LoadConfig(configFile string) (*Config, error) {
 	}
 
 	applyEnv(config)
-	expandPaths(config)
+	ExpandPaths(config)
 
 	return config, nil
 }
@@ -123,9 +123,23 @@ func applyEnv(config *Config) {
 	if value := os.Getenv("CRMSERVICE_CACHE_DIR"); value != "" {
 		config.Cache.SchemaDir = value
 	}
+	if value := os.Getenv("CRMSERVICE_CACHE_TTL_DAYS"); value != "" {
+		if ttlDays, err := strconv.Atoi(value); err == nil {
+			config.Cache.TTLDays = ttlDays
+		}
+	}
+	if value := os.Getenv("CRMSERVICE_CACHE_AUTO_REFRESH"); value != "" {
+		if autoRefresh, err := strconv.ParseBool(value); err == nil {
+			config.Cache.AutoRefresh = autoRefresh
+		}
+	}
+	if value := os.Getenv("CRMSERVICE_AUTH_TYPE"); value != "" {
+		config.Auth.Type = value
+	}
 }
 
-func expandPaths(config *Config) {
+// ExpandPaths resolves home-directory shortcuts in config paths.
+func ExpandPaths(config *Config) {
 	config.Cache.SchemaDir = expandHomePath(config.Cache.SchemaDir)
 }
 

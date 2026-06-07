@@ -181,6 +181,9 @@ func TestLoadConfigEnvOverrides(t *testing.T) {
 	t.Setenv("CRMSERVICE_PAGE_SIZE", "99")
 	t.Setenv("CRMSERVICE_TIMEOUT", "45")
 	t.Setenv("CRMSERVICE_CACHE_DIR", "/tmp/env-cache")
+	t.Setenv("CRMSERVICE_CACHE_TTL_DAYS", "3")
+	t.Setenv("CRMSERVICE_CACHE_AUTO_REFRESH", "false")
+	t.Setenv("CRMSERVICE_AUTH_TYPE", "custom")
 
 	cfg, err := LoadConfig("")
 	if err != nil {
@@ -201,6 +204,15 @@ func TestLoadConfigEnvOverrides(t *testing.T) {
 	}
 	if cfg.Cache.SchemaDir != "/tmp/env-cache" {
 		t.Errorf("Cache.SchemaDir = %q", cfg.Cache.SchemaDir)
+	}
+	if cfg.Cache.TTLDays != 3 {
+		t.Errorf("Cache.TTLDays = %d", cfg.Cache.TTLDays)
+	}
+	if cfg.Cache.AutoRefresh {
+		t.Error("Cache.AutoRefresh = true, expected false")
+	}
+	if cfg.Auth.Type != "custom" {
+		t.Errorf("Auth.Type = %q", cfg.Auth.Type)
 	}
 }
 
@@ -237,6 +249,9 @@ func clearEnv(t *testing.T) {
 		"CRMSERVICE_PAGE_SIZE",
 		"CRMSERVICE_TIMEOUT",
 		"CRMSERVICE_CACHE_DIR",
+		"CRMSERVICE_CACHE_TTL_DAYS",
+		"CRMSERVICE_CACHE_AUTO_REFRESH",
+		"CRMSERVICE_AUTH_TYPE",
 	} {
 		t.Setenv(key, "")
 	}
