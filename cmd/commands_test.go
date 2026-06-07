@@ -532,7 +532,7 @@ func TestModulesCmd(t *testing.T) {
 	})
 
 	t.Run("flags", func(t *testing.T) {
-		flags := []string{"url", "output", "full", "verbose"}
+		flags := []string{"output", "full", "verbose"}
 		for _, name := range flags {
 			flag := cmd.Flags().Lookup(name)
 			if flag == nil {
@@ -613,6 +613,29 @@ func TestGetURLFromFlagOrEnvMissingURL(t *testing.T) {
 	cmd.Flags().String("url", "", "")
 	if _, err := getURLFromFlagOrEnv(cmd); err == nil {
 		t.Fatal("getURLFromFlagOrEnv() error = nil, expected error")
+	}
+}
+
+func TestModulesCommandHTTPError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		if _, err := w.Write([]byte(`{"errors":[{"detail":"unauthorized"}]}`)); err != nil {
+			t.Errorf("Write() returned error: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	oldCfg := cfg
+	cfg = &config.Config{
+		API:  config.APIConfig{URL: server.URL + "/api/v1", Timeout: 5},
+		Auth: config.AuthConfig{Token: "token"},
+	}
+	t.Cleanup(func() { cfg = oldCfg })
+
+	cmd := modulesCmd()
+	cmd.SetArgs([]string{"-o", "json"})
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("Execute() error = nil, expected API error")
 	}
 }
 
