@@ -43,23 +43,24 @@ func normalizeAPIURL(url string) string {
 	return strings.TrimSuffix(url, "/")
 }
 
-func getAPIURL() string {
-	url := os.Getenv("CRMSERVICE_API_URL")
-	if url == "" && cfg != nil {
-		url = cfg.API.URL
+func getURLFromFlagOrEnv(cmd *cobra.Command) (string, error) {
+	url := ""
+	if cmd.Flags().Lookup("url") != nil {
+		var err error
+		url, err = cmd.Flags().GetString("url")
+		if err != nil {
+			return "", err
+		}
 	}
 	if url == "" {
-		output.EmitError(fmt.Errorf("API URL not provided. Set CRMSERVICE_API_URL environment variable, config api.url, or use --url flag"))
-		os.Exit(1)
-	}
-
-	return normalizeAPIURL(url)
-}
-
-func getURLFromFlagOrEnv(cmd *cobra.Command) string {
-	url, err := cmd.Flags().GetString("url")
-	if err != nil {
-		return ""
+		root := cmd.Root()
+		if root != nil && root.PersistentFlags().Lookup("url") != nil {
+			var err error
+			url, err = root.PersistentFlags().GetString("url")
+			if err != nil {
+				return "", err
+			}
+		}
 	}
 	if url == "" {
 		url = os.Getenv("CRMSERVICE_API_URL")
@@ -68,10 +69,10 @@ func getURLFromFlagOrEnv(cmd *cobra.Command) string {
 		url = cfg.API.URL
 	}
 	if url == "" {
-		url = getAPIURL()
+		return "", fmt.Errorf("API URL not provided. Set CRMSERVICE_API_URL environment variable, config api.url, or use --url flag")
 	}
 
-	return normalizeAPIURL(url)
+	return normalizeAPIURL(url), nil
 }
 
 func getTokenFromFlagEnvConfig(cmd *cobra.Command) (string, error) {
@@ -431,7 +432,10 @@ func runListCommand(cmd *cobra.Command, args []string, filterOverride string) er
 		return err
 	}
 
-	url := getURLFromFlagOrEnv(cmd)
+	url, err := getURLFromFlagOrEnv(cmd)
+	if err != nil {
+		return err
+	}
 
 	if filter != "" {
 		if err := validateModuleFilter(module, filter, url, token, verbose); err != nil {
@@ -530,7 +534,10 @@ func getCmd() *cobra.Command {
 				return err
 			}
 
-			url := getURLFromFlagOrEnv(cmd)
+			url, err := getURLFromFlagOrEnv(cmd)
+			if err != nil {
+				return err
+			}
 
 			apiClient := api.NewClient(url, token)
 			apiClient.Verbose = verbose
@@ -618,7 +625,10 @@ func createCmd() *cobra.Command {
 				return err
 			}
 
-			url := getURLFromFlagOrEnv(cmd)
+			url, err := getURLFromFlagOrEnv(cmd)
+			if err != nil {
+				return err
+			}
 
 			apiClient := api.NewClient(url, token)
 			apiClient.Verbose = verbose
@@ -702,7 +712,10 @@ func updateCmd() *cobra.Command {
 				return err
 			}
 
-			url := getURLFromFlagOrEnv(cmd)
+			url, err := getURLFromFlagOrEnv(cmd)
+			if err != nil {
+				return err
+			}
 
 			apiClient := api.NewClient(url, token)
 			apiClient.Verbose = verbose
@@ -759,7 +772,10 @@ func deleteCmd() *cobra.Command {
 				return err
 			}
 
-			url := getURLFromFlagOrEnv(cmd)
+			url, err := getURLFromFlagOrEnv(cmd)
+			if err != nil {
+				return err
+			}
 
 			apiClient := api.NewClient(url, token)
 			apiClient.Verbose = verbose
@@ -812,7 +828,10 @@ func fieldsCmd() *cobra.Command {
 				return err
 			}
 
-			url := getURLFromFlagOrEnv(cmd)
+			url, err := getURLFromFlagOrEnv(cmd)
+			if err != nil {
+				return err
+			}
 
 			body, err := getSchemaBody(module, url, token, verbose, force)
 			if err != nil {

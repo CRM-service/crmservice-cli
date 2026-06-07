@@ -592,11 +592,27 @@ func TestGetURLFromFlagOrEnv(t *testing.T) {
 				t.Errorf("Failed to set flag: %v", err)
 			}
 
-			result := getURLFromFlagOrEnv(cmd)
+			result, err := getURLFromFlagOrEnv(cmd)
+			if err != nil {
+				t.Fatalf("getURLFromFlagOrEnv() returned error: %v", err)
+			}
 			if !strings.HasPrefix(result, tc.expected) {
 				t.Errorf("getURLFromFlagOrEnv() = %q, expected %q", result, tc.expected)
 			}
 		})
+	}
+}
+
+func TestGetURLFromFlagOrEnvMissingURL(t *testing.T) {
+	oldCfg := cfg
+	cfg = &config.Config{}
+	t.Cleanup(func() { cfg = oldCfg })
+	t.Setenv("CRMSERVICE_API_URL", "")
+
+	cmd := &cobra.Command{}
+	cmd.Flags().String("url", "", "")
+	if _, err := getURLFromFlagOrEnv(cmd); err == nil {
+		t.Fatal("getURLFromFlagOrEnv() error = nil, expected error")
 	}
 }
 
@@ -626,7 +642,11 @@ func TestConfigFallbacks(t *testing.T) {
 	cmd.Flags().StringP("output", "o", "table", "")
 	cmd.Flags().Int("page-size", 20, "")
 
-	if got := getURLFromFlagOrEnv(cmd); got != "https://config.example.com/api/v1" {
+	got, err := getURLFromFlagOrEnv(cmd)
+	if err != nil {
+		t.Fatalf("getURLFromFlagOrEnv() returned error: %v", err)
+	}
+	if got != "https://config.example.com/api/v1" {
 		t.Errorf("getURLFromFlagOrEnv() = %q", got)
 	}
 

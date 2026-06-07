@@ -68,7 +68,10 @@ func runCountCommand(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	url := getURLFromFlagOrEnv(cmd)
+	url, err := getURLFromFlagOrEnv(cmd)
+	if err != nil {
+		return err
+	}
 
 	if filterJSON != "" {
 		if err := validateModuleFilter(module, filterJSON, url, token, verbose); err != nil {

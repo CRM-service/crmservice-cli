@@ -134,7 +134,10 @@ func filterCmd() *cobra.Command {
 				return outputFilterValidateResult(outputFormat, filterValidateSuccess("", filterJSON, false))
 			}
 
-			url := getURLFromFlagOrEnv(cmd)
+			url, err := getURLFromFlagOrEnv(cmd)
+			if err != nil {
+				return err
+			}
 			token, err := getRequiredTokenFromFlagEnvConfig(cmd)
 			if err != nil {
 				return err
