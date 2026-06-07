@@ -45,21 +45,81 @@ func initConfig(cmd *cobra.Command) error {
 		return err
 	}
 
-	url, err := cmd.Flags().GetString("url")
-	if err != nil {
-		return err
-	}
-	if url != "" {
+	flags := cmd.Root().PersistentFlags()
+
+	if flags.Changed("url") {
+		url, err := flags.GetString("url")
+		if err != nil {
+			return err
+		}
 		cfg.API.URL = url
 	}
 
-	token, err := cmd.Flags().GetString("token")
-	if err != nil {
-		return err
-	}
-	if token != "" {
+	if flags.Changed("token") {
+		token, err := flags.GetString("token")
+		if err != nil {
+			return err
+		}
 		cfg.Auth.Token = token
 	}
+
+	if flags.Changed("timeout") {
+		timeout, err := flags.GetInt("timeout")
+		if err != nil {
+			return err
+		}
+		cfg.API.Timeout = timeout
+	}
+
+	if flags.Changed("output") {
+		outputFormat, err := flags.GetString("output")
+		if err != nil {
+			return err
+		}
+		cfg.Output.Format = outputFormat
+	}
+
+	if flags.Changed("page-size") {
+		pageSize, err := flags.GetInt("page-size")
+		if err != nil {
+			return err
+		}
+		cfg.Output.PageSize = pageSize
+	}
+
+	if flags.Changed("cache-dir") {
+		cacheDir, err := flags.GetString("cache-dir")
+		if err != nil {
+			return err
+		}
+		cfg.Cache.SchemaDir = cacheDir
+	}
+
+	if flags.Changed("cache-ttl-days") {
+		ttlDays, err := flags.GetInt("cache-ttl-days")
+		if err != nil {
+			return err
+		}
+		cfg.Cache.TTLDays = ttlDays
+	}
+
+	if flags.Changed("cache-auto-refresh") {
+		autoRefresh, err := flags.GetBool("cache-auto-refresh")
+		if err != nil {
+			return err
+		}
+		cfg.Cache.AutoRefresh = autoRefresh
+	}
+
+	if flags.Changed("auth-type") {
+		authType, err := flags.GetString("auth-type")
+		if err != nil {
+			return err
+		}
+		cfg.Auth.Type = authType
+	}
+
+	config.ExpandPaths(cfg)
 
 	return nil
 }
@@ -69,6 +129,13 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "", "Config file path")
 	rootCmd.PersistentFlags().String("url", "", "API base URL (overrides config)")
 	rootCmd.PersistentFlags().String("token", "", "Bearer token (overrides config)")
+	rootCmd.PersistentFlags().Int("timeout", 0, "Request timeout in seconds (overrides config)")
+	rootCmd.PersistentFlags().StringP("output", "o", "", "Default output format: table, json, yaml, jsonl, or csv (overrides config)")
+	rootCmd.PersistentFlags().Int("page-size", 0, "Default page size (overrides config)")
+	rootCmd.PersistentFlags().String("cache-dir", "", "Schema cache directory (overrides config)")
+	rootCmd.PersistentFlags().Int("cache-ttl-days", 0, "Schema cache TTL in days (overrides config)")
+	rootCmd.PersistentFlags().Bool("cache-auto-refresh", true, "Refresh schema cache automatically when missing or expired")
+	rootCmd.PersistentFlags().String("auth-type", "", "Authentication type (overrides config)")
 	rootCmd.AddCommand(listCmd())
 	rootCmd.AddCommand(getCmd())
 	rootCmd.AddCommand(bulkCreateCmd())
