@@ -1,9 +1,8 @@
 package cmd
 
 import (
-	"encoding/json"
+	"fmt"
 	"net/http"
-	"strings"
 
 	"crmservice/internal/api"
 	"crmservice/internal/output"
@@ -16,7 +15,10 @@ func modulesCmd() *cobra.Command {
 		Use:   "modules",
 		Short: "List API modules",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			url := getURLFromFlagOrEnv(cmd)
+			url, err := getURLFromFlagOrEnv(cmd)
+			if err != nil {
+				return err
+			}
 			token, err := getRequiredTokenFromFlagEnvConfig(cmd)
 			if err != nil {
 				return err
@@ -33,47 +35,26 @@ func modulesCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-
-			client := &api.Client{
-				BaseURL:    strings.TrimSuffix(url, "/"),
-				HTTPClient: &http.Client{Timeout: getTimeoutFromConfig()},
-				DefaultHeaders: map[string]string{
-					"Content-Type": "application/vnd.api+json",
-					"Accept":       "application/vnd.api+json",
-				},
-				Verbose: verbose,
+			if !ValidOutputFormat(outputFormat) {
+				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
 			}
 
-			req, err := http.NewRequest("GET", url, nil)
-			if err != nil {
-				return err
-			}
+			client := api.NewClient(url, token)
+			client.Verbose = verbose
+			client.HTTPClient.Timeout = getTimeoutFromConfig()
 
-			req.Header.Set("Accept", "application/vnd.api+json")
-			req.Header.Set("Content-Type", "application/vnd.api+json")
-			if token != "" {
-				req.Header.Set("Authorization", "Bearer "+token)
-			}
-
-			resp, err := client.HTTPClient.Do(req)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			type RawResponse struct {
+			type rawResponse struct {
 				Meta  interface{}            `json:"meta"`
 				Links map[string]interface{} `json:"links"`
 			}
 
-			var raw RawResponse
-			if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+			var raw rawResponse
+			if err := client.Do(cmd.Context(), http.MethodGet, "/", nil, &raw); err != nil {
 				return output.ErrorResponse(err)
 			}
 
 			var data interface{}
 			if full && raw.Links != nil {
-				// Keep original response - extract links into a slice for proper output
 				linksAsSlice := make([]map[string]interface{}, 0)
 				for key, value := range raw.Links {
 					if key != "self" && key != "meta" {
@@ -92,7 +73,6 @@ func modulesCmd() *cobra.Command {
 				}
 				data = linksAsSlice
 			} else if raw.Links != nil {
-				// Extract module names from links
 				moduleNames := make([]map[string]interface{}, 0)
 				for key := range raw.Links {
 					if key != "self" {
@@ -121,7 +101,6 @@ func modulesCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().String("url", "", "API base URL")
 	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
 	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
 	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
