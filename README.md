@@ -292,7 +292,7 @@ crmservice count contacts --include account \
   --filter '{"$eq":["account.account_type","Customer"]}' -o json
 ```
 
-`-o json` returns `{"module":"accounts","total":42}` and includes `filter` when one was used.
+Table and `-o json` both include `filter` when one was used (compact JSON in table output).
 
 ### Filter Language
 
