@@ -34,6 +34,14 @@ func TestSingleRecordRequestBodyCreate(t *testing.T) {
 	}
 }
 
+func TestSingleRecordRequestBodyCreateRequiresFields(t *testing.T) {
+	input := &bodyInput{body: map[string]interface{}{}}
+	_, err := singleRecordRequestBody("accounts", "", "create", input)
+	if err == nil {
+		t.Fatal("singleRecordRequestBody() error = nil, expected error")
+	}
+}
+
 func TestSingleRecordRequestBodyUpdateRequiresFields(t *testing.T) {
 	input := &bodyInput{body: map[string]interface{}{}}
 	_, err := singleRecordRequestBody("accounts", "123", "update", input)

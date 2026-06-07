@@ -611,6 +611,12 @@ func createCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if !input.raw {
+				attrs, ok := input.body.(map[string]interface{})
+				if !ok || len(attrs) == 0 {
+					return fmt.Errorf("no fields provided; use --field or pass JSON via stdin")
+				}
+			}
 
 			if dryRun {
 				body, err := singleRecordRequestBody(module, "", "create", input)
