@@ -96,7 +96,7 @@ func runBulkCommand(cmd *cobra.Command, module, operation string) error {
 		return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", opts.OutputFormat)
 	}
 
-	records, err := readBulkRecords(os.Stdin)
+	records, err := readBulkRecords(cmd.InOrStdin())
 	if err != nil {
 		return err
 	}
@@ -106,7 +106,10 @@ func runBulkCommand(cmd *cobra.Command, module, operation string) error {
 
 	client := api.NewClient("", "")
 	if !opts.DryRun {
-		url := getURLFromFlagOrEnv(cmd)
+		url, err := getURLFromFlagOrEnv(cmd)
+		if err != nil {
+			return err
+		}
 		token, err := getRequiredTokenFromFlagEnvConfig(cmd)
 		if err != nil {
 			return err
@@ -128,10 +131,13 @@ func runBulkCommand(cmd *cobra.Command, module, operation string) error {
 		return outputBulkDryRun(results, opts.OutputFormat)
 	}
 	if len(results) == 0 || summary.Succeeded == 0 {
-		if err != nil {
+		if err != nil && !opts.ContinueOnError {
 			return err
 		}
-		return outputBulkSummary(summary, opts.OutputFormat)
+		if opts.Summary || opts.ContinueOnError {
+			return outputBulkSummary(summary, opts.OutputFormat)
+		}
+		return outputBulkResults(results, opts)
 	}
 	return outputBulkResults(results, opts)
 }
@@ -175,16 +181,21 @@ func getBulkOptions(cmd *cobra.Command) (bulkOptions, error) {
 	return bulkOptions{ContinueOnError: continueOnError, DryRun: dryRun, Concurrency: concurrency, SkipEmpty: skipEmpty, Summary: summary, OutputFormat: outputFormat, Full: full, Verbose: verbose}, nil
 }
 
-func readBulkRecords(stdin *os.File) ([]bulkRecord, error) {
-	info, err := stdin.Stat()
-	if err != nil {
-		return nil, err
+func readBulkRecords(reader io.Reader) ([]bulkRecord, error) {
+	if reader == nil {
+		reader = os.Stdin
 	}
-	if info.Mode()&os.ModeCharDevice != 0 {
-		return nil, nil
+	if file, ok := reader.(*os.File); ok {
+		info, err := file.Stat()
+		if err != nil {
+			return nil, err
+		}
+		if info.Mode()&os.ModeCharDevice != 0 {
+			return nil, nil
+		}
 	}
 
-	body, err := io.ReadAll(stdin)
+	body, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	}

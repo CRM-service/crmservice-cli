@@ -8,9 +8,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"crmservice/internal/api"
+	"crmservice/internal/config"
 )
 
 func TestBulkCommands(t *testing.T) {
@@ -130,6 +132,31 @@ func TestProcessBulkCreate(t *testing.T) {
 	}
 	if _, ok := data["id"]; ok {
 		t.Error("POST body must not include source id")
+	}
+}
+
+func TestRunBulkCommandContinueOnErrorAllFailed(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		if _, err := w.Write([]byte(`{"errors":[{"detail":"bad request"}]}`)); err != nil {
+			t.Errorf("Write() returned error: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	oldCfg := cfg
+	cfg = &config.Config{
+		API:  config.APIConfig{URL: server.URL + "/api/v1", Timeout: 5},
+		Auth: config.AuthConfig{Token: "token"},
+	}
+	t.Cleanup(func() { cfg = oldCfg })
+
+	cmd := bulkCreateCmd()
+	cmd.SetArgs([]string{"accounts", "--continue-on-error", "--summary", "-o", "json"})
+	cmd.SetIn(strings.NewReader("{\"name\":\"Acme\"}\n"))
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() returned error: %v", err)
 	}
 }
 
