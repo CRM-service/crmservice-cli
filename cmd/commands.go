@@ -29,15 +29,16 @@ func ValidOutputFormat(format string) bool {
 }
 
 func normalizeAPIURL(url string) string {
+	url = strings.TrimSuffix(url, "/")
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		url = "https://" + url
 	}
 
 	if !strings.HasSuffix(url, "/api/v1") {
-		url = strings.TrimSuffix(url, "/") + "/api/v1"
+		url += "/api/v1"
 	}
 
-	return strings.TrimSuffix(url, "/")
+	return url
 }
 
 func getURLFromFlagOrEnv(cmd *cobra.Command) (string, error) {
@@ -215,6 +216,9 @@ func validateJSONAPIRequestBody(request map[string]interface{}, id, operation st
 	data, ok := request["data"].(map[string]interface{})
 	if !ok {
 		return fmt.Errorf("invalid JSON:API request body from stdin: data must be an object")
+	}
+	if operation == "create" {
+		delete(data, "id")
 	}
 	if operation == "update" {
 		if bodyID, ok := data["id"]; ok && fmt.Sprintf("%v", bodyID) != id {
@@ -912,9 +916,8 @@ func fieldsCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().String("fields", "", "Comma-separated field names to include")
 	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
-	cmd.Flags().Bool("full", false, "Include full raw schema response from the backend")
+	cmd.Flags().Bool("full", false, "Include full schema response under the data key")
 	cmd.Flags().Bool("force", false, "Force refresh schema cache")
 	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
 

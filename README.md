@@ -255,7 +255,7 @@ crmservice --config site-a.yaml list accounts --all --max-results 500 -o jsonl \
 ```bash
 crmservice modules -o json
 crmservice fields accounts -o json          # clean field list; primary keys marked
-crmservice fields accounts --full -o json   # raw backend schema
+crmservice fields accounts --full -o json   # complete backend schema under the data key
 crmservice fields accounts --force          # bypass cache
 ```
 
