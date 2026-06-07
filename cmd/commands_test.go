@@ -564,10 +564,16 @@ func TestGetURLFromFlagOrEnv(t *testing.T) {
 			expected: "https://env.example.com/api/v1",
 		},
 		{
-			name:     "http converted to https",
+			name:     "http scheme preserved",
 			flagURL:  "http://example.com",
 			envURL:   "",
-			expected: "https://example.com/api/v1",
+			expected: "http://example.com/api/v1",
+		},
+		{
+			name:     "bare hostname uses https",
+			flagURL:  "customer.crmservice.fi",
+			envURL:   "",
+			expected: "https://customer.crmservice.fi/api/v1",
 		},
 		{
 			name:     "api/v1 suffix added",

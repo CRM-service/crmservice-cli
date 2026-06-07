@@ -180,9 +180,5 @@ func (c *Config) GetSanitizedAPIURL() string {
 		url = "https://" + url
 	}
 
-	if strings.HasPrefix(url, "http://") {
-		url = "https://" + strings.TrimPrefix(url, "http://")
-	}
-
 	return strings.TrimSuffix(url, "/")
 }

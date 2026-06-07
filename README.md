@@ -12,7 +12,15 @@ go install .
 
 ## Configuration
 
-### Config File
+### API host
+
+Use the CRM hostname, for example `customer.crmservice.fi`, in `api.url`, `CRMSERVICE_API_URL`, and `--url`.
+
+### Precedence
+
+For every setting below: **command-line flags** override **environment variables**, which override the **config file**.
+
+### Config file
 
 By default, the CLI reads `config.yaml` from the operating system's user config directory:
 
@@ -20,13 +28,11 @@ By default, the CLI reads `config.yaml` from the operating system's user config 
 - macOS: `~/Library/Application Support/crmservice/config.yaml`
 - Windows: `%AppData%\\crmservice\\config.yaml`
 
-Use `--config` only to override this default path.
-
-Create a YAML config file:
+Use `--config` to override this path.
 
 ```yaml
 api:
-  url: "https://customer.example.com/api/v1"
+  url: "customer.crmservice.fi"
   timeout: 30
 
 output:
@@ -44,28 +50,50 @@ auth:
   type: "bearer"
 ```
 
-### Environment Variables
+| Key | Description |
+|-----|-------------|
+| `api.url` | CRM host (`customer.crmservice.fi`) |
+| `api.timeout` | Request timeout in seconds |
+| `output.format` | Default output format: `table`, `json`, `yaml`, `jsonl`, or `csv` |
+| `output.page_size` | Default page size for paginated commands |
+| `cache.schema_dir` | Schema cache directory (`~` paths are expanded) |
+| `cache.ttl_days` | Schema cache TTL in days |
+| `cache.auto_refresh` | Refresh cache when missing or expired |
+| `auth.token` | Bearer token |
+| `auth.type` | Authentication type (default `bearer`) |
 
-```
-CRMSERVICE_API_URL        API base URL
-CRMSERVICE_AUTH_TOKEN     Bearer token
-CRMSERVICE_OUTPUT_FORMAT  Output format (table, json, yaml, jsonl, or csv)
-CRMSERVICE_PAGE_SIZE      Default page size
-CRMSERVICE_TIMEOUT        Request timeout in seconds
-```
+### Environment variables
 
-### Command-line Flags
+| Variable | Description |
+|----------|-------------|
+| `CRMSERVICE_API_URL` | CRM host (`customer.crmservice.fi`) |
+| `CRMSERVICE_AUTH_TOKEN` | Bearer token |
+| `CRMSERVICE_OUTPUT_FORMAT` | Default output format |
+| `CRMSERVICE_PAGE_SIZE` | Default page size |
+| `CRMSERVICE_TIMEOUT` | Request timeout in seconds |
+| `CRMSERVICE_CACHE_DIR` | Schema cache directory |
+| `CRMSERVICE_CACHE_TTL_DAYS` | Schema cache TTL in days |
+| `CRMSERVICE_CACHE_AUTO_REFRESH` | `true` or `false` |
+| `CRMSERVICE_AUTH_TYPE` | Authentication type |
 
-Flags override config file and environment variables. `--config` overrides the default config path:
+### Global command-line flags
 
-```
---url        API base URL
---token      Bearer token
---output     Output format: table, json, yaml, jsonl, or csv
---page-size  Items per page
---timeout    Request timeout
---cache-dir  Schema cache directory
-```
+Available on every command:
+
+| Flag | Description |
+|------|-------------|
+| `--config` | Config file path |
+| `--url` | CRM host (overrides config) |
+| `--token` | Bearer token (overrides config) |
+| `--timeout` | Request timeout in seconds (overrides config) |
+| `-o`, `--output` | Default output format (overrides config) |
+| `--page-size` | Default page size (overrides config) |
+| `--cache-dir` | Schema cache directory (overrides config) |
+| `--cache-ttl-days` | Schema cache TTL in days (overrides config) |
+| `--cache-auto-refresh` | Refresh schema cache automatically (overrides config) |
+| `--auth-type` | Authentication type (overrides config) |
+
+Individual commands may define additional flags (for example `--filter`, `--all`, or per-command `--verbose`). Command-level `-o` / `--output` overrides the global default when set.
 
 ## Usage
 

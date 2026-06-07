@@ -32,9 +32,6 @@ func normalizeAPIURL(url string) string {
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		url = "https://" + url
 	}
-	if strings.HasPrefix(url, "http://") {
-		url = "https://" + strings.TrimPrefix(url, "http://")
-	}
 
 	if !strings.HasSuffix(url, "/api/v1") {
 		url = strings.TrimSuffix(url, "/") + "/api/v1"
