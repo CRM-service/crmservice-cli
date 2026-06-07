@@ -50,6 +50,64 @@ func TestValidateModuleFilterRejectsUnknownField(t *testing.T) {
 	}
 }
 
+func TestValidateModuleFilterRejectsUnknownBareField(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeTestResponse(t, w, `{"attributes":{"name":{"type":"string"}}}`)
+	}))
+	defer server.Close()
+
+	setupFilterCommandTestConfig(t)
+
+	err := validateModuleFilter("accounts", `{"missing_field":"x"}`, server.URL+"/api/v1", "token", 0)
+	if err == nil {
+		t.Fatal("validateModuleFilter() error = nil, expected unknown field error")
+	}
+	if !strings.Contains(err.Error(), "missing_field") {
+		t.Fatalf("validateModuleFilter() error = %v, expected missing_field", err)
+	}
+}
+
+func TestValidateModuleFilterAcceptsKnownBareField(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeTestResponse(t, w, `{"attributes":{"account_type":{"type":"string"}}}`)
+	}))
+	defer server.Close()
+
+	setupFilterCommandTestConfig(t)
+
+	err := validateModuleFilter("accounts", `{"account_type":"Customer"}`, server.URL+"/api/v1", "token", 0)
+	if err != nil {
+		t.Fatalf("validateModuleFilter() error = %v, expected nil", err)
+	}
+}
+
+func TestRunListCommandRejectsUnknownBareField(t *testing.T) {
+	listRequests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/accounts") {
+			listRequests++
+		}
+		writeTestResponse(t, w, `{"data":[]}`)
+	}))
+	defer server.Close()
+
+	setupFilterCommandTestConfig(t)
+
+	cmd := listCmd()
+	cmd.SetContext(context.Background())
+	if err := cmd.Flags().Set("filter", `{"missing_field":"x"}`); err != nil {
+		t.Fatalf("Set(filter) error: %v", err)
+	}
+
+	err := runListCommand(cmd, []string{"accounts"}, "")
+	if err == nil {
+		t.Fatal("runListCommand() error = nil, expected filter validation error")
+	}
+	if listRequests != 0 {
+		t.Errorf("list requests = %d, want 0", listRequests)
+	}
+}
+
 func TestRunListCommandRejectsInvalidFilterSyntax(t *testing.T) {
 	listRequests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

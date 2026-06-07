@@ -13,6 +13,7 @@ func TestValidateFilterJSON(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "eq", filter: `{"$eq":["account_type","Customer"]}`},
+		{name: "bare equality shorthand", filter: `{"account_type":"Customer"}`},
 		{name: "and", filter: `{"$and":[{"$eq":["account_type","Customer"]},{"$cts":["name","Acme"]}]}`},
 		{name: "in", filter: `{"$in":["id",["1","2"]]}`},
 		{name: "between", filter: `{"$between":["created_at","2026-01-01","2026-01-31"]}`},

@@ -37,6 +37,7 @@ printf '{"id":"123","field":"value"}\n' | crmservice bulk-update <module> --summ
 - **stdout** = data only (records, validation results, bulk summary)
 - **stderr** = truncation status, structured errors (matches `-o`)
 - `list` / `search` / `count` → validate filter syntax and schema field names before API calls
+- **Filters** → always use explicit operator syntax (`{"$eq":["field","value"]}`, `$and`, `$cts`, …). Bare `{"field":"value"}` is human shorthand only; agents must not use it
 - `filter validate` → optional standalone check; stdout only; exit 0 = valid, non-zero = invalid
 - `--all --max-results N` → truncation status on **stderr**; exit code stays 0
 - `bulk-*` production writes → `--summary -o json`; with `--continue-on-error`, check `failed > 0`

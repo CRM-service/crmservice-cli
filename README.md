@@ -298,7 +298,7 @@ Table and `-o json` both include `filter` when one was used (compact JSON in tab
 
 Filters are JSON expressions used by `list --filter`, `search`, and `count`. Quote them with single quotes in the shell.
 
-Preferred syntax is an operator object:
+Preferred syntax is an operator object. **Scripts and agents should always use explicit operators** (`$eq`, `$and`, `$cts`, and so on).
 
 ```bash
 # Exact match
@@ -320,6 +320,8 @@ crmservice list activities --filter '{"$gte":["start_date","$now.date -7 days"]}
 # Non-empty email
 crmservice list contacts --filter '{"$not.null":["email"]}'
 ```
+
+Equality shorthand: a single `{"field":"value"}` pair is treated as `$eq` (for example `{"account_type":"Customer"}`). This is mainly for quick interactive use. Field names in bare keys are validated against the module schema the same way as operator filters.
 
 Common operators:
 
