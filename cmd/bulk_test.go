@@ -234,8 +234,13 @@ func TestRunBulkCommandContinueOnErrorAllFailed(t *testing.T) {
 	cmd.SetArgs([]string{"accounts", "--continue-on-error", "--summary", "-o", "json"})
 	cmd.SetIn(strings.NewReader("{\"name\":\"Acme\"}\n"))
 
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("Execute() returned error: %v", err)
+	stdout := captureBulkStdout(t, func() {
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("Execute() returned error: %v", err)
+		}
+	})
+	if strings.TrimSpace(stdout) == "" {
+		t.Fatal("bulk summary output is empty")
 	}
 }
 

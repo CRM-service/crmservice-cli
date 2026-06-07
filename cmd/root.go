@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
+	"os"
 
 	"crmservice/internal/config"
 	"crmservice/internal/output"
@@ -10,8 +12,9 @@ import (
 )
 
 var (
-	configFile string
-	cfg        *config.Config
+	configFile     string
+	cfg            *config.Config
+	commandStarted bool
 )
 
 var rootCmd = &cobra.Command{
@@ -22,6 +25,7 @@ var rootCmd = &cobra.Command{
 	SilenceErrors: true,
 	SilenceUsage:  true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		commandStarted = true
 		if err := initConfig(cmd); err != nil {
 			return err
 		}
@@ -31,8 +35,13 @@ var rootCmd = &cobra.Command{
 }
 
 func Execute() error {
+	commandStarted = false
 	executedCmd, err := rootCmd.ExecuteC()
 	if err != nil {
+		if !commandStarted {
+			emitUsageError(executedCmd, err)
+			return err
+		}
 		if executedCmd != nil {
 			setActiveOutputFormat(executedCmd)
 		}
@@ -43,6 +52,16 @@ func Execute() error {
 		return err
 	}
 	return nil
+}
+
+func emitUsageError(cmd *cobra.Command, err error) {
+	if cmd == nil {
+		cmd = rootCmd
+	}
+	fmt.Fprintf(os.Stderr, "Error: %v\n\n", err)
+	if usageErr := cmd.Usage(); usageErr != nil {
+		fmt.Fprintf(os.Stderr, "failed to print usage: %v\n", usageErr)
+	}
 }
 
 func initConfig(cmd *cobra.Command) error {

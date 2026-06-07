@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"crmservice/internal/config"
@@ -68,11 +69,18 @@ func TestDoctorCmdFailsWhenChecksFail(t *testing.T) {
 	t.Cleanup(func() { cfg = oldCfg })
 
 	cmd := doctorCmd()
+	cmd.SilenceErrors = true
+	cmd.SilenceUsage = true
 	cmd.SetArgs([]string{"-o", "json"})
 
 	out := captureStdout(t, func() {
-		if err := cmd.Execute(); err == nil {
-			t.Fatal("Execute() error = nil, expected error")
+		stderr := captureStderr(t, func() {
+			if err := cmd.Execute(); err == nil {
+				t.Fatal("Execute() error = nil, expected error")
+			}
+		})
+		if strings.Contains(stderr, "Usage:") {
+			t.Fatalf("stderr = %q, expected no usage output", stderr)
 		}
 	})
 
