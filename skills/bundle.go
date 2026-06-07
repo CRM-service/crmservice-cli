@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	pathpkg "path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -23,7 +24,7 @@ var CRMServiceFS embed.FS
 var CRMServiceSkill string
 
 func init() {
-	data, err := CRMServiceFS.ReadFile(filepath.Join(SkillBundleRoot, "SKILL.md"))
+	data, err := CRMServiceFS.ReadFile(pathpkg.Join(SkillBundleRoot, "SKILL.md"))
 	if err != nil {
 		panic(fmt.Sprintf("read bundled SKILL.md: %v", err))
 	}
@@ -35,6 +36,13 @@ func skillContentHash(content string) string {
 	return hex.EncodeToString(sum[:])
 }
 
+func embeddedRelativePath(root, filePath string) string {
+	if filePath == root {
+		return "."
+	}
+	return strings.TrimPrefix(filePath, root+"/")
+}
+
 func skillManifestFromFS(fsys fs.FS, root string) (map[string]string, error) {
 	hashes := make(map[string]string)
 	err := fs.WalkDir(fsys, root, func(path string, d fs.DirEntry, err error) error {
@@ -44,11 +52,7 @@ func skillManifestFromFS(fsys fs.FS, root string) (map[string]string, error) {
 		if d.IsDir() {
 			return nil
 		}
-		rel, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
-		rel = filepath.ToSlash(rel)
+		rel := embeddedRelativePath(root, path)
 		data, err := fs.ReadFile(fsys, path)
 		if err != nil {
 			return err
@@ -130,11 +134,8 @@ func InstallSkillBundle(destDir string) error {
 		if err != nil {
 			return err
 		}
-		rel, err := filepath.Rel(SkillBundleRoot, path)
-		if err != nil {
-			return err
-		}
-		target := filepath.Join(destDir, rel)
+		rel := embeddedRelativePath(SkillBundleRoot, path)
+		target := filepath.Join(destDir, filepath.FromSlash(rel))
 		if d.IsDir() {
 			return os.MkdirAll(target, 0o755)
 		}
