@@ -53,40 +53,7 @@ func modulesCmd() *cobra.Command {
 				return output.ErrorResponse(err)
 			}
 
-			var data interface{}
-			if full && raw.Links != nil {
-				linksAsSlice := make([]map[string]interface{}, 0)
-				for key, value := range raw.Links {
-					if key != "self" && key != "meta" {
-						if link, ok := value.(map[string]interface{}); ok {
-							linksAsSlice = append(linksAsSlice, map[string]interface{}{
-								"id":   key,
-								"type": "modules",
-								"attributes": map[string]interface{}{
-									"name": key,
-									"href": link["href"],
-									"type": link["type"],
-								},
-							})
-						}
-					}
-				}
-				data = linksAsSlice
-			} else if raw.Links != nil {
-				moduleNames := make([]map[string]interface{}, 0)
-				for key := range raw.Links {
-					if key != "self" {
-						moduleNames = append(moduleNames, map[string]interface{}{
-							"id":   key,
-							"type": "modules",
-							"attributes": map[string]interface{}{
-								"name": key,
-							},
-						})
-					}
-				}
-				data = moduleNames
-			}
+			data := modulesDataFromLinks(raw.Links, full)
 
 			respObj := &api.Response{
 				Data:  data,

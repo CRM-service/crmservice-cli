@@ -841,22 +841,10 @@ func fieldsCmd() *cobra.Command {
 				return err
 			}
 
-			type RawAttributeData struct {
-				Type           string      `json:"type"`
-				Size           float64     `json:"size,omitempty"`
-				Scale          float64     `json:"scale,omitempty"`
-				Nullable       bool        `json:"nullable,omitempty"`
-				DefaultValue   interface{} `json:"defaultValue,omitempty"`
-				RelationModule string      `json:"relationModule,omitempty"`
-				Label          string      `json:"label,omitempty"`
-			}
-
 			var rawResp map[string]interface{}
 			if err := json.Unmarshal(body, &rawResp); err != nil {
 				return output.ErrorResponse(err)
 			}
-
-			var schemaAttrs []map[string]interface{}
 
 			var primaryKey []string
 			if pkRaw, ok := rawResp["primary-key"].([]interface{}); ok {
@@ -867,89 +855,11 @@ func fieldsCmd() *cobra.Command {
 				}
 			}
 
-			if attrsObj, ok := rawResp["attributes"].(map[string]interface{}); ok {
-				for name, attrData := range attrsObj {
-					if attrMap, ok := attrData.(map[string]interface{}); ok {
-						attrData := RawAttributeData{}
-						if typeVal, ok := attrMap["type"].(string); ok {
-							attrData.Type = typeVal
-						}
-						if sizeVal, ok := attrMap["size"].(float64); ok {
-							attrData.Size = sizeVal
-						}
-						if scaleVal, ok := attrMap["scale"].(float64); ok {
-							attrData.Scale = scaleVal
-						}
-						if nullableVal, ok := attrMap["nullable"].(bool); ok {
-							attrData.Nullable = nullableVal
-						}
-						if defaultValueVal, ok := attrMap["defaultValue"]; ok {
-							attrData.DefaultValue = defaultValueVal
-						}
-						if relMod, ok := attrMap["relationModule"].(string); ok {
-							attrData.RelationModule = relMod
-						}
-						if label, ok := attrMap["label"].(string); ok {
-							attrData.Label = label
-						}
-
-						attr := map[string]interface{}{
-							"name":         name,
-							"type":         attrData.Type,
-							"size":         attrData.Size,
-							"scale":        attrData.Scale,
-							"nullable":     attrData.Nullable,
-							"defaultValue": attrData.DefaultValue,
-							"label":        attrData.Label,
-						}
-						if attrData.RelationModule != "" {
-							attr["relationModule"] = attrData.RelationModule
-						}
-						schemaAttrs = append(schemaAttrs, attr)
-					}
-				}
+			var attrsObj map[string]interface{}
+			if rawAttrs, ok := rawResp["attributes"].(map[string]interface{}); ok {
+				attrsObj = rawAttrs
 			}
-
-			var fieldList []map[string]interface{}
-			for _, attr := range schemaAttrs {
-				field := map[string]interface{}{
-					"name": attr["name"],
-					"type": attr["type"],
-				}
-				if size, ok := attr["size"].(float64); ok && size > 0 {
-					field["size"] = size
-				}
-				if scale, ok := attr["scale"].(float64); ok && scale > 0 {
-					field["scale"] = scale
-				}
-				if nullable, ok := attr["nullable"].(bool); ok {
-					field["nullable"] = nullable
-				}
-				if defaultValue, ok := attr["defaultValue"]; ok && defaultValue != nil {
-					field["defaultValue"] = defaultValue
-				}
-				if label, ok := attr["label"].(string); ok && label != "" {
-					field["label"] = label
-				}
-				if relMod, ok := attr["relationModule"].(string); ok && relMod != "" {
-					field["extras"] = relMod
-				}
-				fieldList = append(fieldList, field)
-			}
-
-			// Annotate each field record with "primary": true for primary key fields.
-			// This moves the primary key information into the structured output
-			// so that machine consumers (jq etc.) can use it directly without
-			// special parsing or prefix stripping.
-			pkSet := make(map[string]bool, len(primaryKey))
-			for _, pk := range primaryKey {
-				pkSet[pk] = true
-			}
-			for _, f := range fieldList {
-				if name, ok := f["name"].(string); ok && pkSet[name] {
-					f["primary"] = true
-				}
-			}
+			fieldList := fieldListFromSchemaAttributes(attrsObj, primaryKey)
 
 			// Only print the human-readable "Primary Key: ..." line for table output.
 			// For json/jsonl/yaml/csv (used heavily by agents and scripts) we keep
@@ -966,7 +876,7 @@ func fieldsCmd() *cobra.Command {
 				// details the server knows about, etc.). This only affects
 				// structured output formats; table still gets a nice view.
 				if outputFormat != "table" {
-					data = rawResp
+					data = schemaResponseWithSortedAttributes(rawResp)
 				}
 			}
 
