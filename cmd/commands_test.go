@@ -839,3 +839,18 @@ func TestReadStdinBodyInputValidatesJSONAPIUpdateID(t *testing.T) {
 		t.Fatal("readStdinBodyInput() error = nil, expected id mismatch error")
 	}
 }
+
+func TestBodyInputHasEmptyAttributes(t *testing.T) {
+	if !bodyInputHasEmptyAttributes(&bodyInput{body: map[string]interface{}{}}) {
+		t.Fatal("empty flat attributes should be empty")
+	}
+	if bodyInputHasEmptyAttributes(&bodyInput{body: map[string]interface{}{"name": "Acme"}}) {
+		t.Fatal("non-empty flat attributes should not be empty")
+	}
+	if !bodyInputHasEmptyAttributes(&bodyInput{raw: true, body: map[string]interface{}{"data": map[string]interface{}{"attributes": map[string]interface{}{}}}}) {
+		t.Fatal("empty JSON:API attributes should be empty")
+	}
+	if bodyInputHasEmptyAttributes(&bodyInput{raw: true, body: map[string]interface{}{"data": map[string]interface{}{"attributes": map[string]interface{}{"name": "Acme"}}}}) {
+		t.Fatal("non-empty JSON:API attributes should not be empty")
+	}
+}

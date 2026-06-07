@@ -238,6 +238,26 @@ func flatRecordAttributes(record map[string]interface{}, id, operation string) (
 	return attrs, nil
 }
 
+func bodyInputHasEmptyAttributes(input *bodyInput) bool {
+	if input == nil {
+		return true
+	}
+	if !input.raw {
+		attrs, ok := input.body.(map[string]interface{})
+		return !ok || len(attrs) == 0
+	}
+	body, ok := input.body.(map[string]interface{})
+	if !ok {
+		return true
+	}
+	data, ok := body["data"].(map[string]interface{})
+	if !ok {
+		return true
+	}
+	attrs, ok := data["attributes"].(map[string]interface{})
+	return ok && len(attrs) == 0
+}
+
 func readStdinJSONAPIRequest(stdin *os.File) (map[string]interface{}, bool, error) {
 	input, ok, err := readStdinBodyInput(stdin, "", "create")
 	if !ok || err != nil {
@@ -608,11 +628,8 @@ func createCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if !input.raw {
-				attrs, ok := input.body.(map[string]interface{})
-				if !ok || len(attrs) == 0 {
-					return fmt.Errorf("no fields provided; use --field or pass JSON via stdin")
-				}
+			if bodyInputHasEmptyAttributes(input) {
+				return fmt.Errorf("no fields provided; use --field or pass JSON via stdin")
 			}
 
 			if dryRun {
@@ -700,6 +717,9 @@ func updateCmd() *cobra.Command {
 			input, err := getBodyInput(cmd, id, "update")
 			if err != nil {
 				return err
+			}
+			if bodyInputHasEmptyAttributes(input) {
+				return fmt.Errorf("no fields provided; use --field or pass JSON via stdin")
 			}
 
 			if dryRun {
