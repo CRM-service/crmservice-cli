@@ -645,9 +645,16 @@ func TestModulesCommandHTTPError(t *testing.T) {
 	t.Cleanup(func() { cfg = oldCfg })
 
 	cmd := modulesCmd()
+	cmd.SilenceErrors = true
+	cmd.SilenceUsage = true
 	cmd.SetArgs([]string{"-o", "json"})
-	if err := cmd.Execute(); err == nil {
-		t.Fatal("Execute() error = nil, expected API error")
+	stderr := captureStderr(t, func() {
+		if err := cmd.Execute(); err == nil {
+			t.Fatal("Execute() error = nil, expected API error")
+		}
+	})
+	if strings.Contains(stderr, "Usage:") {
+		t.Fatalf("stderr = %q, expected no usage output", stderr)
 	}
 }
 
