@@ -368,14 +368,15 @@ func processBulkRecord(ctx context.Context, client *api.Client, module, operatio
 
 func bulkRequestBody(module, operation string, record bulkRecord) (map[string]interface{}, string, error) {
 	if data, ok := record["data"].(map[string]interface{}); ok {
-		id := ""
-		if idValue, ok := data["id"].(string); ok {
-			id = idValue
-		}
-		if operation == "create" {
+		id, hasID := normalizeRecordID(data["id"])
+		switch operation {
+		case "create":
 			delete(data, "id")
-		} else if id == "" {
-			return nil, "", fmt.Errorf("bulk-update requires id in each record")
+		case "update":
+			if !hasID {
+				return nil, "", fmt.Errorf("bulk-update requires id in each record")
+			}
+			data["id"] = id
 		}
 		return map[string]interface{}{"data": data}, id, nil
 	}
@@ -384,8 +385,8 @@ func bulkRequestBody(module, operation string, record bulkRecord) (map[string]in
 	var id string
 	for key, value := range record {
 		if key == "id" {
-			if value != nil {
-				id = fmt.Sprintf("%v", value)
+			if normalized, ok := normalizeRecordID(value); ok {
+				id = normalized
 			}
 			continue
 		}

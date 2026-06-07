@@ -96,6 +96,85 @@ func TestBulkRequestBodyUpdateRequiresID(t *testing.T) {
 	}
 }
 
+func TestBulkRequestBodyUpdateJSONAPINumericID(t *testing.T) {
+	record := bulkRecord{
+		"data": map[string]interface{}{
+			"type": "accounts",
+			"id":   json.Number("297603"),
+			"attributes": map[string]interface{}{
+				"name": "Acme",
+			},
+		},
+	}
+
+	body, id, err := bulkRequestBody("accounts", "update", record)
+	if err != nil {
+		t.Fatalf("bulkRequestBody() returned error: %v", err)
+	}
+	if id != "297603" {
+		t.Errorf("id = %q, expected 297603", id)
+	}
+
+	data, ok := body["data"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("body[data] = %T, expected map", body["data"])
+	}
+	if data["id"] != "297603" {
+		t.Errorf("data[id] = %v, expected string 297603", data["id"])
+	}
+}
+
+func TestBulkRequestBodyUpdateFlatNumericID(t *testing.T) {
+	body, id, err := bulkRequestBody("accounts", "update", bulkRecord{"id": json.Number("42"), "name": "Acme"})
+	if err != nil {
+		t.Fatalf("bulkRequestBody() returned error: %v", err)
+	}
+	if id != "42" {
+		t.Errorf("id = %q, expected 42", id)
+	}
+	data, ok := body["data"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("body[data] = %T, expected map", body["data"])
+	}
+	if data["id"] != "42" {
+		t.Errorf("data[id] = %v, expected 42", data["id"])
+	}
+}
+
+func TestProcessBulkUpdateJSONAPINumericIDPath(t *testing.T) {
+	var paths []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		if r.Method != http.MethodPatch {
+			t.Errorf("method = %s, expected PATCH", r.Method)
+		}
+		w.Header().Set("Content-Type", "application/vnd.api+json")
+		if _, err := w.Write([]byte(`{"data":{"id":"297603","type":"accounts","attributes":{"name":"Acme"}}}`)); err != nil {
+			t.Errorf("Write() returned error: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "token")
+	record := bulkRecord{
+		"data": map[string]interface{}{
+			"type":       "accounts",
+			"id":         json.Number("297603"),
+			"attributes": map[string]interface{}{"name": "Acme"},
+		},
+	}
+	results, summary, err := processBulkRecords(context.Background(), client, "accounts", "update", []bulkRecord{record}, bulkOptions{Concurrency: 1})
+	if err != nil {
+		t.Fatalf("processBulkRecords() returned error: %v", err)
+	}
+	if summary.Succeeded != 1 || len(results) != 1 {
+		t.Fatalf("summary/results = %+v/%d", summary, len(results))
+	}
+	if len(paths) != 1 || paths[0] != "/accounts/297603" {
+		t.Errorf("paths = %v, expected [/accounts/297603]", paths)
+	}
+}
+
 func TestProcessBulkCreate(t *testing.T) {
 	var bodies []map[string]interface{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
