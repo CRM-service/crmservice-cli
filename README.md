@@ -93,6 +93,33 @@ Available on every command:
 
 Individual commands may define additional flags (for example `--filter`, `--all`, or per-command `--verbose`). Command-level `-o` / `--output` overrides the global default when set.
 
+## Exit codes
+
+The CLI uses two exit codes:
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success |
+| `1` | Error (missing config, validation failure, API error, and so on) |
+
+Most commands follow that default. A few use exit code as an explicit pass/fail signal, and some keep exit `0` when stdout or stderr still carries a warning:
+
+| Command / situation | Exit `0` | Exit `1` |
+|---------------------|----------|----------|
+| Default data commands (`list`, `get`, `create`, …) | Command completed | Any error |
+| `filter validate` | Filter is valid (result on stdout) | Filter is invalid |
+| `doctor` | All checks passed (`ok: true` in JSON) | One or more checks failed |
+| `skill install --check` | Installed skill matches bundled copy | Missing or stale |
+| `list` / `search` with `--all --max-results` | Records returned, including when truncated | Fetch/validation error |
+| `bulk-*` with `--continue-on-error` | Processing finished (check output for failures) | Input/setup error before processing |
+| `bulk-*` without `--continue-on-error` | All records succeeded | Any record failed |
+
+Notes for automation:
+
+- After `list` / `search --all --max-results N`, inspect **stderr** for truncation status even when exit code is `0`.
+- For `bulk-*` production writes, prefer `--summary -o json`. With `--continue-on-error`, exit code can stay `0` while `failed > 0`; parse the summary instead of relying on exit code alone.
+- `filter validate` and `skill install --check` write their pass/fail result to **stdout**; use exit code for branching and stdout for details.
+
 ## Usage
 
 ### List Records
