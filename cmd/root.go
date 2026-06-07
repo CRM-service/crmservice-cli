@@ -111,14 +111,6 @@ func initConfig(cmd *cobra.Command) error {
 		cfg.Cache.AutoRefresh = autoRefresh
 	}
 
-	if flags.Changed("auth-type") {
-		authType, err := flags.GetString("auth-type")
-		if err != nil {
-			return err
-		}
-		cfg.Auth.Type = authType
-	}
-
 	config.ExpandPaths(cfg)
 
 	return nil
@@ -135,7 +127,6 @@ func init() {
 	rootCmd.PersistentFlags().String("cache-dir", "", "Schema cache directory (overrides config)")
 	rootCmd.PersistentFlags().Int("cache-ttl-days", 0, "Schema cache TTL in days (overrides config)")
 	rootCmd.PersistentFlags().Bool("cache-auto-refresh", true, "Refresh schema cache automatically when missing or expired")
-	rootCmd.PersistentFlags().String("auth-type", "", "Authentication type (overrides config)")
 	rootCmd.AddCommand(listCmd())
 	rootCmd.AddCommand(getCmd())
 	rootCmd.AddCommand(bulkCreateCmd())

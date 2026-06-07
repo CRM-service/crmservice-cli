@@ -47,7 +47,6 @@ cache:
 
 auth:
   token: "your-bearer-token"
-  type: "bearer"
 ```
 
 | Key | Description |
@@ -60,7 +59,6 @@ auth:
 | `cache.ttl_days` | Schema cache TTL in days |
 | `cache.auto_refresh` | Refresh cache when missing or expired |
 | `auth.token` | Bearer token |
-| `auth.type` | Authentication type (default `bearer`) |
 
 ### Environment variables
 
@@ -74,7 +72,6 @@ auth:
 | `CRMSERVICE_CACHE_DIR` | Schema cache directory |
 | `CRMSERVICE_CACHE_TTL_DAYS` | Schema cache TTL in days |
 | `CRMSERVICE_CACHE_AUTO_REFRESH` | `true` or `false` |
-| `CRMSERVICE_AUTH_TYPE` | Authentication type |
 
 ### Global command-line flags
 
@@ -91,7 +88,6 @@ Available on every command:
 | `--cache-dir` | Schema cache directory (overrides config) |
 | `--cache-ttl-days` | Schema cache TTL in days (overrides config) |
 | `--cache-auto-refresh` | Refresh schema cache automatically (overrides config) |
-| `--auth-type` | Authentication type (overrides config) |
 
 Individual commands may define additional flags (for example `--filter`, `--all`, or per-command `--verbose`). Command-level `-o` / `--output` overrides the global default when set.
 

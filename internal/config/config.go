@@ -34,7 +34,6 @@ type CacheConfig struct {
 
 type AuthConfig struct {
 	Token string `yaml:"token"`
-	Type  string `yaml:"type"`
 }
 
 func defaultConfig() *Config {
@@ -51,9 +50,7 @@ func defaultConfig() *Config {
 			TTLDays:     24,
 			AutoRefresh: true,
 		},
-		Auth: AuthConfig{
-			Type: "bearer",
-		},
+		Auth: AuthConfig{},
 	}
 }
 
@@ -132,9 +129,6 @@ func applyEnv(config *Config) {
 		if autoRefresh, err := strconv.ParseBool(value); err == nil {
 			config.Cache.AutoRefresh = autoRefresh
 		}
-	}
-	if value := os.Getenv("CRMSERVICE_AUTH_TYPE"); value != "" {
-		config.Auth.Type = value
 	}
 }
 

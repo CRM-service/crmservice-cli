@@ -13,4 +13,3 @@ cache:
 
 auth:
   token: "your-bearer-token-here"
-  type: "bearer"

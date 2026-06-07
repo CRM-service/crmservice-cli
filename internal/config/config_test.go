@@ -35,9 +35,6 @@ func TestLoadConfigDefaults(t *testing.T) {
 	if !cfg.Cache.AutoRefresh {
 		t.Error("Cache.AutoRefresh = false, expected true")
 	}
-	if cfg.Auth.Type != "bearer" {
-		t.Errorf("Auth.Type = %q, expected bearer", cfg.Auth.Type)
-	}
 }
 
 func TestLoadConfigYAML(t *testing.T) {
@@ -56,7 +53,6 @@ cache:
   auto_refresh: false
 auth:
   token: "token-from-file"
-  type: "bearer"
 `)
 	if err := os.WriteFile(path, content, 0o600); err != nil {
 		t.Fatalf("WriteFile() returned error: %v", err)
@@ -183,7 +179,6 @@ func TestLoadConfigEnvOverrides(t *testing.T) {
 	t.Setenv("CRMSERVICE_CACHE_DIR", "/tmp/env-cache")
 	t.Setenv("CRMSERVICE_CACHE_TTL_DAYS", "3")
 	t.Setenv("CRMSERVICE_CACHE_AUTO_REFRESH", "false")
-	t.Setenv("CRMSERVICE_AUTH_TYPE", "custom")
 
 	cfg, err := LoadConfig("")
 	if err != nil {
@@ -210,9 +205,6 @@ func TestLoadConfigEnvOverrides(t *testing.T) {
 	}
 	if cfg.Cache.AutoRefresh {
 		t.Error("Cache.AutoRefresh = true, expected false")
-	}
-	if cfg.Auth.Type != "custom" {
-		t.Errorf("Auth.Type = %q", cfg.Auth.Type)
 	}
 }
 
@@ -251,7 +243,6 @@ func clearEnv(t *testing.T) {
 		"CRMSERVICE_CACHE_DIR",
 		"CRMSERVICE_CACHE_TTL_DAYS",
 		"CRMSERVICE_CACHE_AUTO_REFRESH",
-		"CRMSERVICE_AUTH_TYPE",
 	} {
 		t.Setenv(key, "")
 	}
