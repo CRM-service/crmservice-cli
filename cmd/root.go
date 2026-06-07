@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"errors"
-	"os"
 
 	"crmservice/internal/config"
 	"crmservice/internal/output"
@@ -35,7 +34,7 @@ func Execute() error {
 		if !errors.As(err, &reported) {
 			output.EmitError(err)
 		}
-		os.Exit(1)
+		return err
 	}
 	return nil
 }
