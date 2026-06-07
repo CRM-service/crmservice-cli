@@ -11,6 +11,16 @@ import (
 	"crmservice/skills"
 )
 
+func setTestUserHome(t *testing.T) string {
+	t.Helper()
+
+	home := t.TempDir()
+	oldUserHomeDir := userHomeDir
+	userHomeDir = func() (string, error) { return home, nil }
+	t.Cleanup(func() { userHomeDir = oldUserHomeDir })
+	return home
+}
+
 func TestSkillInstallPath(t *testing.T) {
 	home := filepath.Join(string(filepath.Separator), "home", "testuser")
 	expected := filepath.Join(home, ".agents", "skills", "crmservice", "SKILL.md")
@@ -83,8 +93,7 @@ func TestRootCommandIncludesSkillCommand(t *testing.T) {
 }
 
 func TestSkillInstallCheckUpToDate(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setTestUserHome(t)
 
 	path, err := defaultSkillInstallPath()
 	if err != nil {
@@ -118,8 +127,7 @@ func TestSkillInstallCheckUpToDate(t *testing.T) {
 }
 
 func TestSkillInstallCheckStale(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setTestUserHome(t)
 
 	path, err := defaultSkillInstallPath()
 	if err != nil {
@@ -159,8 +167,7 @@ func TestSkillInstallCheckStale(t *testing.T) {
 }
 
 func TestSkillInstallCheckMissing(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setTestUserHome(t)
 
 	cmd := skillCmd()
 	cmd.SetArgs([]string{"install", "--check", "-o", "json"})

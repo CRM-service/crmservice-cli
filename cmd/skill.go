@@ -95,8 +95,10 @@ func skillInstallCmd() *cobra.Command {
 	return cmd
 }
 
+var userHomeDir = os.UserHomeDir
+
 func defaultSkillInstallPath() (string, error) {
-	home, err := os.UserHomeDir()
+	home, err := userHomeDir()
 	if err != nil {
 		return "", err
 	}
