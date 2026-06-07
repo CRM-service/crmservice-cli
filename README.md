@@ -49,6 +49,8 @@ auth:
   token: "your-bearer-token"
 ```
 
+If you store `auth.token` in a config file, restrict permissions so only your user can read it (`chmod 600` on Linux and macOS). Prefer `CRMSERVICE_AUTH_TOKEN` or `--token` in CI and agent environments so the token is not written to disk.
+
 | Key | Description |
 |-----|-------------|
 | `api.url` | CRM host (`customer.crmservice.fi`) |
@@ -362,6 +364,23 @@ crmservice doctor -o json
 crmservice whoami
 crmservice whoami --output json
 ```
+
+### Shell completion
+
+Generate a completion script for your shell:
+
+```bash
+# Bash
+crmservice completion bash > ~/.local/share/bash-completion/completions/crmservice
+
+# Zsh
+crmservice completion zsh > ~/.zcompletions/_crmservice
+
+# Fish
+crmservice completion fish > ~/.config/fish/completions/crmservice.fish
+```
+
+Bash completion requires the `bash-completion` package. Restart your shell or open a new terminal after installing the script.
 
 ### Agent Skill
 
