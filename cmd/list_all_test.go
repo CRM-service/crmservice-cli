@@ -69,6 +69,41 @@ func TestValidateListAllFlags(t *testing.T) {
 	}
 }
 
+func TestValidateListPaginationFlags(t *testing.T) {
+	tests := []struct {
+		name     string
+		flags    map[string]string
+		page     int
+		offset   int
+		pageSize int
+		wantErr  string
+	}{
+		{name: "negative page", flags: map[string]string{"page": "-1"}, page: -1, offset: 0, pageSize: 20, wantErr: "--page must be at least 1"},
+		{name: "zero page", flags: map[string]string{"page": "0"}, page: 0, offset: 0, pageSize: 20, wantErr: "--page must be at least 1"},
+		{name: "negative offset", flags: map[string]string{"offset": "-5"}, page: 1, offset: -5, pageSize: 20, wantErr: "--offset must be 0 or greater"},
+		{name: "invalid page size", page: 1, offset: 0, pageSize: 0, wantErr: "--page-size must be at least 1"},
+		{name: "valid pagination", page: 2, offset: 10, pageSize: 50},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := listCmd()
+			setListFlags(t, cmd, tt.flags)
+
+			err := validateListPaginationFlags(cmd, tt.page, tt.offset, tt.pageSize)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("validateListPaginationFlags() error = %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("validateListPaginationFlags() error = %v, want %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestPageSizeForListAllDefault(t *testing.T) {
 	cmd := listCmd()
 	if err := cmd.Flags().Set("all", "true"); err != nil {

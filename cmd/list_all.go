@@ -74,6 +74,19 @@ func pageSizeForList(cmd *cobra.Command, all bool) (int, error) {
 	return getPageSizeFromFlagConfig(cmd)
 }
 
+func validateListPaginationFlags(cmd *cobra.Command, page, offset, pageSize int) error {
+	if cmd.Flags().Changed("page") && page < 1 {
+		return fmt.Errorf("--page must be at least 1")
+	}
+	if cmd.Flags().Changed("offset") && offset < 0 {
+		return fmt.Errorf("--offset must be 0 or greater")
+	}
+	if pageSize < 1 {
+		return fmt.Errorf("--page-size must be at least 1")
+	}
+	return nil
+}
+
 type listAllResult struct {
 	data      []interface{}
 	included  []interface{}
