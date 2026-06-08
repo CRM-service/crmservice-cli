@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	"crmservice/internal/config"
+	"crmservice/internal/output"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -44,7 +45,7 @@ func doctorCmd() *cobra.Command {
 				if issues, hasIssues := result["issues"].([]string); hasIssues {
 					issueCount = len(issues)
 				}
-				return fmt.Errorf("doctor: %d check(s) failed", issueCount)
+				return &output.ReportedError{Err: fmt.Errorf("doctor: %d check(s) failed", issueCount)}
 			}
 			return nil
 		},

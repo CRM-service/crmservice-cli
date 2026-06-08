@@ -82,6 +82,9 @@ func TestDoctorCmdFailsWhenChecksFail(t *testing.T) {
 		if strings.Contains(stderr, "Usage:") {
 			t.Fatalf("stderr = %q, expected no usage output", stderr)
 		}
+		if strings.Count(stderr, "doctor:") > 1 {
+			t.Fatalf("stderr = %q, expected a single doctor failure message", stderr)
+		}
 	})
 
 	var result map[string]interface{}
