@@ -1,10 +1,13 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"crmservice/internal/output"
 
 	"gopkg.in/yaml.v3"
 )
@@ -75,7 +78,9 @@ func LoadConfig(configFile string) (*Config, error) {
 		}
 	}
 
-	applyEnv(config)
+	if err := applyEnv(config); err != nil {
+		return nil, err
+	}
 	ExpandPaths(config)
 
 	return config, nil
@@ -97,7 +102,7 @@ func DefaultConfigPath() string {
 	return defaultConfigFile()
 }
 
-func applyEnv(config *Config) {
+func applyEnv(config *Config) error {
 	if value := os.Getenv("CRMSERVICE_API_URL"); value != "" {
 		config.API.URL = value
 	}
@@ -105,31 +110,43 @@ func applyEnv(config *Config) {
 		config.Auth.Token = value
 	}
 	if value := os.Getenv("CRMSERVICE_OUTPUT_FORMAT"); value != "" {
+		if !output.ValidOutputFormat(value) {
+			return fmt.Errorf("invalid CRMSERVICE_OUTPUT_FORMAT: %q", value)
+		}
 		config.Output.Format = value
 	}
 	if value := os.Getenv("CRMSERVICE_PAGE_SIZE"); value != "" {
-		if pageSize, err := strconv.Atoi(value); err == nil {
-			config.Output.PageSize = pageSize
+		pageSize, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("invalid CRMSERVICE_PAGE_SIZE: %q", value)
 		}
+		config.Output.PageSize = pageSize
 	}
 	if value := os.Getenv("CRMSERVICE_TIMEOUT"); value != "" {
-		if timeout, err := strconv.Atoi(value); err == nil {
-			config.API.Timeout = timeout
+		timeout, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("invalid CRMSERVICE_TIMEOUT: %q", value)
 		}
+		config.API.Timeout = timeout
 	}
 	if value := os.Getenv("CRMSERVICE_CACHE_DIR"); value != "" {
 		config.Cache.SchemaDir = value
 	}
 	if value := os.Getenv("CRMSERVICE_CACHE_TTL_DAYS"); value != "" {
-		if ttlDays, err := strconv.Atoi(value); err == nil {
-			config.Cache.TTLDays = ttlDays
+		ttlDays, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("invalid CRMSERVICE_CACHE_TTL_DAYS: %q", value)
 		}
+		config.Cache.TTLDays = ttlDays
 	}
 	if value := os.Getenv("CRMSERVICE_CACHE_AUTO_REFRESH"); value != "" {
-		if autoRefresh, err := strconv.ParseBool(value); err == nil {
-			config.Cache.AutoRefresh = autoRefresh
+		autoRefresh, err := strconv.ParseBool(value)
+		if err != nil {
+			return fmt.Errorf("invalid CRMSERVICE_CACHE_AUTO_REFRESH: %q", value)
 		}
+		config.Cache.AutoRefresh = autoRefresh
 	}
+	return nil
 }
 
 // ExpandPaths resolves home-directory shortcuts in config paths.

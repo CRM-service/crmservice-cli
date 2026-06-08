@@ -208,6 +208,33 @@ func TestLoadConfigEnvOverrides(t *testing.T) {
 	}
 }
 
+func TestLoadConfigRejectsInvalidEnvVars(t *testing.T) {
+	testCases := []struct {
+		name  string
+		key   string
+		value string
+	}{
+		{"output format", "CRMSERVICE_OUTPUT_FORMAT", "xml"},
+		{"page size", "CRMSERVICE_PAGE_SIZE", "not-a-number"},
+		{"timeout", "CRMSERVICE_TIMEOUT", "abc"},
+		{"cache ttl days", "CRMSERVICE_CACHE_TTL_DAYS", "many"},
+		{"cache auto refresh", "CRMSERVICE_CACHE_AUTO_REFRESH", "maybe"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			clearEnv(t)
+			setConfigDir(t, t.TempDir())
+			t.Setenv(tc.key, tc.value)
+
+			_, err := LoadConfig("")
+			if err == nil {
+				t.Fatalf("LoadConfig() error = nil, expected invalid %s", tc.key)
+			}
+		})
+	}
+}
+
 func setConfigDir(t *testing.T, configDir string) {
 	t.Helper()
 
