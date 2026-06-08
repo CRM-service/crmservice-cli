@@ -22,31 +22,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func TestValidOutputFormat(t *testing.T) {
-	t.Run("valid formats", func(t *testing.T) {
-		t.Parallel()
-		formats := []string{"table", "json", "yaml", "jsonl", "csv"}
-		for _, format := range formats {
-			if !ValidOutputFormat(format) {
-				t.Errorf("ValidOutputFormat(%q) = false, expected true", format)
-			}
-		}
-	})
-
-	t.Run("invalid format", func(t *testing.T) {
-		t.Parallel()
-		if ValidOutputFormat("invalid") {
-			t.Error("ValidOutputFormat(\"invalid\") = true, expected false")
-		}
-		if ValidOutputFormat("") {
-			t.Error("ValidOutputFormat(\"\") = true, expected false")
-		}
-		if ValidOutputFormat("xml") {
-			t.Error("ValidOutputFormat(\"xml\") = true, expected false")
-		}
-	})
-}
-
 func TestListCmd(t *testing.T) {
 	cmd := listCmd()
 
@@ -106,10 +81,10 @@ func TestListCmd(t *testing.T) {
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
 				if tc.shouldErr != !tc.valid {
-					if tc.valid && !ValidOutputFormat(tc.output) {
+					if tc.valid && !output.ValidOutputFormat(tc.output) {
 						t.Errorf("Format %s should be valid", tc.output)
 					}
-					if !tc.valid && ValidOutputFormat(tc.output) {
+					if !tc.valid && output.ValidOutputFormat(tc.output) {
 						t.Errorf("Format %s should be invalid", tc.output)
 					}
 				}
@@ -817,6 +792,21 @@ func TestConfigFallbacks(t *testing.T) {
 
 	if timeout := getTimeoutFromConfig(); timeout != 42*time.Second {
 		t.Errorf("timeout = %v", timeout)
+	}
+}
+
+func TestGetOutputFormatFromFlagConfigRejectsInvalidFormat(t *testing.T) {
+	cmd := listCmd()
+	if err := cmd.Flags().Set("output", "xml"); err != nil {
+		t.Fatalf("Set(output) error: %v", err)
+	}
+
+	_, err := getOutputFormatFromFlagConfig(cmd)
+	if err == nil {
+		t.Fatal("getOutputFormatFromFlagConfig() error = nil, expected invalid format error")
+	}
+	if !strings.Contains(err.Error(), "invalid output format") {
+		t.Fatalf("error = %v, expected invalid output format", err)
 	}
 }
 

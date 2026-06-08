@@ -123,9 +123,6 @@ func filterCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
-			}
 
 			module := ""
 			filterJSON := args[0]
