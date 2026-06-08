@@ -32,6 +32,8 @@ printf '{"name":"..."}\n' | crmservice bulk-create <module> --dry-run -o jsonl
 printf '{"id":"123","field":"value"}\n' | crmservice bulk-update <module> --summary -o json
 ```
 
+**Module relations:** CRM modules link through named relations; the relation name in `--include` is often not the module name (e.g. `rows` → `invoice_rows`). Prefer FK fields (`account_id`) or child-module queries in filters. See [references/relations.md](references/relations.md) for relation types, naming quirks, and a lookup table.
+
 ## Key contracts
 
 - **stdout** = data only (records, validation results, bulk summary)
@@ -75,6 +77,7 @@ Read the matching file when you need detail beyond the quick start:
 |-------------------|------|
 | Export, paginate, or choose output format | [references/output.md](references/output.md) |
 | Build or debug a filter | [references/filters.md](references/filters.md) |
+| Understand module relations (hasOne/hasMany, rows, many-to-many) | [references/relations.md](references/relations.md) |
 | Read, count, or inspect schema | [references/reads.md](references/reads.md) |
 | Create, update, or delete one record | [references/writes.md](references/writes.md) |
 | Batch create/update or migrate data | [references/bulk.md](references/bulk.md) |

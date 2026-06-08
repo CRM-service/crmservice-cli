@@ -85,7 +85,42 @@ crmservice list accounts --fields "id,name,<owner_field>,<creator_field>" -o jso
 
 See [reads.md](reads.md) for `--include` relationship caveats.
 
+## Module relations
+
+CRM modules link through named relations. The relation name in `--include` is often **not** the module name — e.g. invoices use relation `rows` for module `invoice_rows`.
+
+**Use FK fields or child-module queries in filters** — not `relation.field` paths. The CLI validates field names against the module schema; `account.account_type` fails because `account` is not a direct attribute on `contacts` (the FK field is `account_id`).
+
+```bash
+# Discover relations and FK fields
+crmservice fields invoices --full -o json | jq '.relations | keys'
+crmservice fields contacts -o json | jq '.[] | select(.extras != null) | {name, module: .extras}'
+
+# hasOne: filter parent by FK field
+crmservice search contacts '{"$eq":["account_id","ACCOUNT_ID"]}' -o json
+
+# hasMany (direct): search child module by parent FK
+crmservice search contacts '{"$eq":["account_id","ACCOUNT_ID"]}' -o jsonl
+
+# Filter by related attribute without the ID — two-step
+filter=$(crmservice search accounts '{"$eq":["account_type","Customer"]}' --all --max-results 500 -o jsonl \
+  | jq -sc 'select(length > 0) | {"$in":["account_id",[.[].id]]}')
+[ -n "$filter" ] && crmservice search contacts "$filter" -o jsonl
+
+# Inventory line items: relation "rows" → module "invoice_rows", FK is entity_id
+crmservice search invoice_rows '{"$eq":["entity_id","INVOICE_ID"]}' -o jsonl
+
+# Rows by product name — resolve ID first; build filter with jq -n (not xargs)
+product_id=$(crmservice search products '{"$cts":["name","Widget"]}' --page-size 1 -o jsonl | jq -r '.id')
+[ -n "$product_id" ] && crmservice search invoice_rows \
+  "$(jq -n --arg id "$product_id" '{"$eq":["product_id",$id]}')" -o jsonl
+```
+
+Full relation type guide and reference table: [relations.md](relations.md).
+
 ## jq pipelines
+
+When building filter JSON in the shell, always emit a complete object (`jq -sc` for `$in`, `jq -n --arg` for `$eq`). Do not splice `jq` output into partial JSON with `xargs -I{}`. Prefer `-o jsonl` for single-record ID extraction (`jq -r '.id'`); `-o json` returns an array.
 
 ```bash
 # Pick only a few fields from JSONL output
