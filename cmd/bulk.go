@@ -282,7 +282,7 @@ func processBulkRecords(ctx context.Context, client *api.Client, module, operati
 	summary := bulkSummary{Operation: operation, Module: module, Total: len(records), DryRun: opts.DryRun}
 	results := make([]bulkResult, len(records))
 
-	if opts.Concurrency == 1 || !opts.ContinueOnError {
+	if opts.Concurrency == 1 {
 		var firstErr error
 		for i, record := range records {
 			result, err := processBulkRecord(ctx, client, module, operation, i, record, opts)
@@ -298,6 +298,9 @@ func processBulkRecords(ctx context.Context, client *api.Client, module, operati
 		return compactBulkResults(results), summary, firstErr
 	}
 
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	jobs := make(chan int)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -308,19 +311,39 @@ func processBulkRecords(ctx context.Context, client *api.Client, module, operati
 		go func() {
 			defer wg.Done()
 			for i := range jobs {
+				if ctx.Err() != nil {
+					return
+				}
 				result, err := processBulkRecord(ctx, client, module, operation, i, records[i], opts)
 				mu.Lock()
 				results[i] = result
 				applyBulkResultToSummary(&summary, result)
 				if err != nil && firstErr == nil {
 					firstErr = err
+					if !opts.ContinueOnError {
+						cancel()
+					}
 				}
 				mu.Unlock()
 			}
 		}()
 	}
+
+dispatch:
 	for i := range records {
-		jobs <- i
+		if !opts.ContinueOnError {
+			mu.Lock()
+			stop := firstErr != nil
+			mu.Unlock()
+			if stop {
+				break dispatch
+			}
+		}
+		select {
+		case <-ctx.Done():
+			break dispatch
+		case jobs <- i:
+		}
 	}
 	close(jobs)
 	wg.Wait()
