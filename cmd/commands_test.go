@@ -915,6 +915,21 @@ func TestGetBodyInputRejectsInvalidFieldFlag(t *testing.T) {
 	}
 }
 
+func TestParseFieldValue(t *testing.T) {
+	if got := parseFieldValue("Acme"); got != "Acme" {
+		t.Fatalf("parseFieldValue(string) = %v, want Acme", got)
+	}
+	if got := parseFieldValue("true"); got != true {
+		t.Fatalf("parseFieldValue(bool) = %v, want true", got)
+	}
+	if got := parseFieldValue("42"); got != float64(42) {
+		t.Fatalf("parseFieldValue(number) = %v, want 42", got)
+	}
+	if got := parseFieldValue(`["a","b"]`); got == nil {
+		t.Fatal("parseFieldValue(array) = nil, want slice")
+	}
+}
+
 func TestReadStdinBodyInputAcceptsFlatCreate(t *testing.T) {
 	stdin := pipeWithContent(t, `{"id":"source-id","name":"Test Corp","account_type":"Customer"}`)
 
