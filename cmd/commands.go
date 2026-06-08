@@ -435,6 +435,9 @@ func runListCommand(cmd *cobra.Command, args []string, filterOverride string) er
 	if err != nil {
 		return err
 	}
+	if err := validateListPaginationFlags(cmd, page, offset, pageSize); err != nil {
+		return err
+	}
 	fields, err := cmd.Flags().GetString("fields")
 	if err != nil {
 		return err
