@@ -34,14 +34,43 @@ func parseModuleSchema(body []byte) (*moduleSchema, error) {
 		if !ok {
 			continue
 		}
-		relMod, ok := attrMap["relationModule"].(string)
-		if !ok || relMod == "" {
-			continue
+		schema.registerAttributeRelation(name, attrMap)
+	}
+
+	if relationsObj, ok := rawResp["relations"].(map[string]interface{}); ok {
+		for relName, relData := range relationsObj {
+			relMap, ok := relData.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			if class, ok := relMap["class"].(string); ok && class != "" {
+				schema.relationTargets[relName] = class
+			}
 		}
-		schema.addRelationTarget(name, relMod)
 	}
 
 	return schema, nil
+}
+
+func (s *moduleSchema) registerAttributeRelation(attributeName string, attrMap map[string]interface{}) {
+	if relMod, ok := attrMap["relationModule"].(string); ok && relMod != "" {
+		s.addRelationTarget(attributeName, relMod)
+	}
+
+	if relType, ok := attrMap["relationType"].(string); ok && relType != "" {
+		s.addRelationTarget(attributeName, relType)
+		if relName, ok := attrMap["relationName"].(string); ok && relName != "" {
+			s.relationTargets[relName] = relType
+		}
+	}
+
+	if relMods, ok := attrMap["relationModules"].([]interface{}); ok {
+		for _, item := range relMods {
+			if mod, ok := item.(string); ok && mod != "" {
+				s.addRelationTarget(attributeName, mod)
+			}
+		}
+	}
 }
 
 func (s *moduleSchema) addRelationTarget(attributeName, relationModule string) {

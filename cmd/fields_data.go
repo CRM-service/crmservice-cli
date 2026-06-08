@@ -40,6 +40,8 @@ func fieldListFromSchemaAttributes(attrsObj map[string]interface{}, primaryKey [
 		}
 		if relMod, ok := attrData["relationModule"].(string); ok {
 			parsed.RelationModule = relMod
+		} else if relType, ok := attrData["relationType"].(string); ok {
+			parsed.RelationModule = relType
 		}
 		if label, ok := attrData["label"].(string); ok {
 			parsed.Label = label

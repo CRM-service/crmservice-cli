@@ -2,9 +2,9 @@
 
 Filters are JSON expressions used by `crmservice list <module> --filter '<json>'`, `crmservice search <module> '<json>'`, and `crmservice count <module> '<json>'`. Always quote the JSON in the shell with single quotes.
 
-Use field **names** from `crmservice fields <module>` (not labels). Related fields can be addressed as `relation.field` when the backend exposes and permits that relation.
+Use field **names** from `crmservice fields <module>` (not labels). Filters must reference attributes that exist on the module being searched. For relations, prefer **FK fields** (`account_id`) or search the **child module** directly. Relation names often differ from module names (e.g. `rows` on `invoices` → `invoice_rows` module). See [relations.md](relations.md) for relation types, naming quirks, and a full reference table.
 
-`list`, `search`, and `count` always validate filters locally before calling the API: JSON syntax, operator shape, and field names against the module schema (including one-level relation paths like `account.account_type`). Invalid filters fail with a non-zero exit code and structured stderr matching `-o`.
+`list`, `search`, and `count` always validate filters locally before calling the API: JSON syntax, operator shape, and field names against the module schema. Invalid filters fail with a non-zero exit code and structured stderr matching `-o`. Paths like `account.account_type` on `contacts` fail validation — use `account_id` or a two-step query instead.
 
 ## Preferred expression shape
 
@@ -30,7 +30,7 @@ A filter object may use bare field keys as a shortcut for a single equals compar
 {"account_type":"Customer"}
 ```
 
-This is equivalent to `{"$eq":["account_type","Customer"]}` when the API accepts it. `list`, `search`, `count`, and `filter validate <module>` validate bare field names against the module schema (including one-level relation paths like `account.account_type`). Use explicit operators for combined conditions, non-equals comparisons, null checks, and agent-generated filters.
+This is equivalent to `{"$eq":["account_type","Customer"]}` when the API accepts it. `list`, `search`, `count`, and `filter validate <module>` validate bare field names against the module schema. Use explicit operators for combined conditions, non-equals comparisons, null checks, and agent-generated filters.
 
 ## Operators
 
@@ -74,8 +74,8 @@ crmservice list activities --filter '{"$gte":["start_date","$now.date -7 days"]}
 # Null / non-null
 crmservice list contacts --filter '{"$not.null":["email"]}'
 
-# Related field, if the relation exists and is readable
-crmservice list contacts --filter '{"$eq":["account.account_type","Customer"]}'
+# Related record by FK field (preferred over relation.field paths)
+crmservice list contacts --filter '{"$eq":["account_id","ACCOUNT_ID"]}'
 ```
 
 Filter values are case-insensitive for text comparisons.

@@ -44,8 +44,9 @@ Use `count` when you need a total without fetching records. It accepts the same 
 crmservice count accounts -o json
 crmservice count accounts '{"$eq":["account_type","Customer"]}' -o json
 crmservice count accounts --filter '{"$eq":["account_type","Customer"]}' -o json
-crmservice count contacts --include account \
-  --filter '{"$eq":["account.account_type","Customer"]}' -o json
+filter=$(crmservice search accounts '{"$eq":["account_type","Customer"]}' --all --max-results 500 -o jsonl \
+  | jq -sc 'select(length > 0) | {"$in":["account_id",[.[].id]]}')
+[ -n "$filter" ] && crmservice count contacts "$filter" -o json
 ```
 
 `-o json` returns `{"module":"accounts","total":42}` and includes `filter` when one was used.
