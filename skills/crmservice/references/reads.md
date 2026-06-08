@@ -68,7 +68,7 @@ crmservice fields accounts -o json | jq '.[] | select(.primary) | .name'
 
 Use `--full` to receive the complete raw schema document returned by the backend.
 
-The `fields` command uses a persistent per-API schema cache in the OS user cache directory; cache TTL is controlled by `cache.ttl_days` and refresh behavior by `cache.auto_refresh`. Use `crmservice fields <module> --force` to bypass and regenerate the schema cache.
+The `fields` command uses a persistent per-API schema cache in the OS user cache directory. Default TTL is 24 hours (`cache.ttl_seconds: 86400`); auto-refresh is on by default (`cache.auto_refresh: true`). Use `crmservice fields <module> --force` to bypass and regenerate the schema cache.
 
 All fields have `name` and `label`. API calls must always use the **name**. Schema defines datatypes; invalid values must never be sent to the API. Custom fields are often prefixed with `cf_`.
 

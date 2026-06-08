@@ -119,12 +119,12 @@ func initConfig(cmd *cobra.Command) error {
 		cfg.Cache.SchemaDir = cacheDir
 	}
 
-	if flags.Changed("cache-ttl-days") {
-		ttlDays, err := flags.GetInt("cache-ttl-days")
+	if flags.Changed("cache-ttl-seconds") {
+		ttlSeconds, err := flags.GetInt("cache-ttl-seconds")
 		if err != nil {
 			return err
 		}
-		cfg.Cache.TTLDays = ttlDays
+		cfg.Cache.TTLSeconds = ttlSeconds
 	}
 
 	if flags.Changed("cache-auto-refresh") {
@@ -149,7 +149,7 @@ func init() {
 	rootCmd.PersistentFlags().StringP("output", "o", "", "Default output format: table, json, yaml, jsonl, or csv (overrides config)")
 	rootCmd.PersistentFlags().Int("page-size", 0, "Default page size (overrides config)")
 	rootCmd.PersistentFlags().String("cache-dir", "", "Schema cache directory (overrides config)")
-	rootCmd.PersistentFlags().Int("cache-ttl-days", 0, "Schema cache TTL in days (overrides config)")
+	rootCmd.PersistentFlags().Int("cache-ttl-seconds", 0, "Schema cache TTL in seconds (overrides config)")
 	rootCmd.PersistentFlags().Bool("cache-auto-refresh", true, "Refresh schema cache automatically when missing or expired")
 	rootCmd.AddCommand(listCmd())
 	rootCmd.AddCommand(getCmd())

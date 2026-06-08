@@ -9,9 +9,11 @@ import (
 	"time"
 )
 
+const DefaultTTLSeconds = 24 * 60 * 60
+
 type SchemaCache struct {
 	CacheDir    string
-	TTLDays     int
+	TTLSeconds  int
 	AutoRefresh bool
 }
 
@@ -25,7 +27,7 @@ type CachedSchema struct {
 func NewSchemaCache(cacheDir string) *SchemaCache {
 	return &SchemaCache{
 		CacheDir:    cacheDir,
-		TTLDays:     24,
+		TTLSeconds:  DefaultTTLSeconds,
 		AutoRefresh: true,
 	}
 }
@@ -83,8 +85,8 @@ func (c *SchemaCache) Delete(module string) error {
 }
 
 func (c *SchemaCache) IsFresh(fetched time.Time) bool {
-	if c.TTLDays <= 0 {
+	if c.TTLSeconds <= 0 {
 		return true
 	}
-	return time.Since(fetched).Hours() < float64(c.TTLDays*24)
+	return time.Since(fetched).Seconds() < float64(c.TTLSeconds)
 }

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"crmservice/internal/cache"
 	"crmservice/internal/output"
 
 	"gopkg.in/yaml.v3"
@@ -31,7 +32,7 @@ type OutputConfig struct {
 
 type CacheConfig struct {
 	SchemaDir   string `yaml:"schema_dir"`
-	TTLDays     int    `yaml:"ttl_days"`
+	TTLSeconds  int    `yaml:"ttl_seconds"`
 	AutoRefresh bool   `yaml:"auto_refresh"`
 }
 
@@ -50,7 +51,7 @@ func defaultConfig() *Config {
 		},
 		Cache: CacheConfig{
 			SchemaDir:   getCacheDir(),
-			TTLDays:     24,
+			TTLSeconds:  cache.DefaultTTLSeconds,
 			AutoRefresh: true,
 		},
 		Auth: AuthConfig{},
@@ -138,12 +139,12 @@ func applyEnv(config *Config) error {
 	if value := os.Getenv("CRMSERVICE_CACHE_DIR"); value != "" {
 		config.Cache.SchemaDir = value
 	}
-	if value := os.Getenv("CRMSERVICE_CACHE_TTL_DAYS"); value != "" {
-		ttlDays, err := strconv.Atoi(value)
+	if value := os.Getenv("CRMSERVICE_CACHE_TTL_SECONDS"); value != "" {
+		ttlSeconds, err := strconv.Atoi(value)
 		if err != nil {
-			return fmt.Errorf("invalid CRMSERVICE_CACHE_TTL_DAYS: %q", value)
+			return fmt.Errorf("invalid CRMSERVICE_CACHE_TTL_SECONDS: %q", value)
 		}
-		config.Cache.TTLDays = ttlDays
+		config.Cache.TTLSeconds = ttlSeconds
 	}
 	if value := os.Getenv("CRMSERVICE_CACHE_AUTO_REFRESH"); value != "" {
 		autoRefresh, err := strconv.ParseBool(value)

@@ -228,7 +228,7 @@ func TestGetSchemaBodyUsesPersistedCache(t *testing.T) {
 	cfg = &config.Config{
 		Cache: config.CacheConfig{
 			SchemaDir:   t.TempDir(),
-			TTLDays:     1,
+			TTLSeconds:  1,
 			AutoRefresh: true,
 		},
 		API: config.APIConfig{Timeout: 30},
@@ -267,7 +267,7 @@ func TestGetSchemaBodyReturnsDataWhenCacheSaveFails(t *testing.T) {
 	cfg = &config.Config{
 		Cache: config.CacheConfig{
 			SchemaDir:   schemaDir,
-			TTLDays:     1,
+			TTLSeconds:  1,
 			AutoRefresh: true,
 		},
 		API: config.APIConfig{Timeout: 30},
@@ -301,7 +301,7 @@ func TestGetSchemaBodyRefreshesExpiredCache(t *testing.T) {
 	cfg = &config.Config{
 		Cache: config.CacheConfig{
 			SchemaDir:   t.TempDir(),
-			TTLDays:     1,
+			TTLSeconds:  1,
 			AutoRefresh: true,
 		},
 		API: config.APIConfig{Timeout: 30},
@@ -347,7 +347,7 @@ func TestGetSchemaBodyForceRefreshesCache(t *testing.T) {
 	cfg = &config.Config{
 		Cache: config.CacheConfig{
 			SchemaDir:   t.TempDir(),
-			TTLDays:     1,
+			TTLSeconds:  1,
 			AutoRefresh: true,
 		},
 		API: config.APIConfig{Timeout: 30},
@@ -375,7 +375,7 @@ func TestGetSchemaBodyDoesNotRefreshWhenDisabled(t *testing.T) {
 	cfg = &config.Config{
 		Cache: config.CacheConfig{
 			SchemaDir:   t.TempDir(),
-			TTLDays:     1,
+			TTLSeconds:  1,
 			AutoRefresh: false,
 		},
 		API: config.APIConfig{Timeout: 30},
