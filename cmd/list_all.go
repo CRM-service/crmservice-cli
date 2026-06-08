@@ -380,6 +380,7 @@ func runListAllStreamCSV(
 ) error {
 	streamOpts := output.Options{Format: "csv", Fields: outputFields, Full: full}
 	writer := output.NewCSVStreamWriter()
+	seenIncluded := make(map[string]bool)
 	total := 0
 	truncated := false
 	page := 1
@@ -421,6 +422,12 @@ func runListAllStreamCSV(
 		}
 		total += len(pageData)
 
+		if full && resp.Included != nil {
+			if err := streamNewIncludedResourcesCSV(resp.Included, seenIncluded, writer, streamOpts); err != nil {
+				return err
+			}
+		}
+
 		if truncated {
 			break
 		}
@@ -452,7 +459,7 @@ func runListAllStreamCSV(
 	return nil
 }
 
-func streamNewIncludedResources(included interface{}, seen map[string]bool, opts output.Options) error {
+func collectNewIncludedResources(included interface{}, seen map[string]bool) []interface{} {
 	items := toInterfaceSlice(included)
 	if len(items) == 0 {
 		return nil
@@ -471,8 +478,19 @@ func streamNewIncludedResources(included interface{}, seen map[string]bool, opts
 		seen[key] = true
 		newItems = append(newItems, item)
 	}
+	return newItems
+}
 
-	return output.StreamJSONLRecords(newItems, opts)
+func streamNewIncludedResources(included interface{}, seen map[string]bool, opts output.Options) error {
+	return output.StreamJSONLRecords(collectNewIncludedResources(included, seen), opts)
+}
+
+func streamNewIncludedResourcesCSV(included interface{}, seen map[string]bool, writer *output.CSVStreamWriter, opts output.Options) error {
+	newItems := collectNewIncludedResources(included, seen)
+	if len(newItems) == 0 {
+		return nil
+	}
+	return writer.WritePage(newItems, opts)
 }
 
 func includedResourceKey(item interface{}) string {
