@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -78,6 +79,93 @@ func (s *moduleSchema) validateField(field string, loadRelated func(module strin
 	}
 
 	return fmt.Errorf("unknown field %q", field)
+}
+
+func collectBodyAttributeFields(input *bodyInput) ([]string, error) {
+	if input == nil {
+		return nil, nil
+	}
+
+	if input.raw {
+		body, ok := input.body.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("invalid JSON:API request body")
+		}
+		data, ok := body["data"].(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("invalid JSON:API request body: data must be an object")
+		}
+		attrs, ok := data["attributes"].(map[string]interface{})
+		if !ok {
+			return nil, nil
+		}
+		fields := make([]string, 0, len(attrs))
+		for name := range attrs {
+			fields = append(fields, name)
+		}
+		sort.Strings(fields)
+		return fields, nil
+	}
+
+	attrs, ok := input.body.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid request attributes")
+	}
+	fields := make([]string, 0, len(attrs))
+	for name := range attrs {
+		fields = append(fields, name)
+	}
+	sort.Strings(fields)
+	return fields, nil
+}
+
+func validateModuleAttributes(module string, fields []string, url, token string, verbose int) error {
+	if len(fields) == 0 {
+		return nil
+	}
+
+	body, err := getSchemaBody(module, url, token, verbose, false)
+	if err != nil {
+		return fmt.Errorf("failed to load schema for module %q: %w", module, err)
+	}
+
+	schema, err := parseModuleSchema(body)
+	if err != nil {
+		return err
+	}
+
+	relatedCache := make(map[string]*moduleSchema)
+	loadRelated := func(relationModule string) (*moduleSchema, error) {
+		if cached, ok := relatedCache[relationModule]; ok {
+			return cached, nil
+		}
+		relatedBody, err := getSchemaBody(relationModule, url, token, verbose, false)
+		if err != nil {
+			return nil, err
+		}
+		relatedSchema, err := parseModuleSchema(relatedBody)
+		if err != nil {
+			return nil, err
+		}
+		relatedCache[relationModule] = relatedSchema
+		return relatedSchema, nil
+	}
+
+	for _, field := range fields {
+		if err := schema.validateField(field, loadRelated); err != nil {
+			return fmt.Errorf("module %q: %w", module, err)
+		}
+	}
+
+	return nil
+}
+
+func validateBodyInputAgainstModule(module string, input *bodyInput, url, token string, verbose int) error {
+	fields, err := collectBodyAttributeFields(input)
+	if err != nil {
+		return err
+	}
+	return validateModuleAttributes(module, fields, url, token, verbose)
 }
 
 func validateModuleFilter(module, filterJSON, url, token string, verbose int) error {
