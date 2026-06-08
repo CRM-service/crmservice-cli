@@ -348,9 +348,6 @@ dispatch:
 	close(jobs)
 	wg.Wait()
 
-	if firstErr != nil && !opts.ContinueOnError {
-		return compactBulkResults(results), summary, firstErr
-	}
 	return compactBulkResults(results), summary, firstErr
 }
 
