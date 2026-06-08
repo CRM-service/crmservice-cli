@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -305,10 +306,10 @@ func TestProcessBulkRecordsUsesConcurrency(t *testing.T) {
 }
 
 func TestProcessBulkRecordsConcurrencyStopsOnError(t *testing.T) {
-	requests := 0
+	var requests atomic.Int64
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requests++
+		requests.Add(1)
 		w.WriteHeader(http.StatusBadRequest)
 		if _, err := w.Write([]byte(`{"errors":[{"detail":"bad request"}]}`)); err != nil {
 			t.Errorf("Write() returned error: %v", err)
@@ -330,8 +331,9 @@ func TestProcessBulkRecordsConcurrencyStopsOnError(t *testing.T) {
 	if summary.Failed < 1 {
 		t.Fatalf("summary.Failed = %d, want >= 1", summary.Failed)
 	}
-	if requests >= len(records) {
-		t.Fatalf("requests = %d, want fewer than %d without --continue-on-error", requests, len(records))
+	reqCount := int(requests.Load())
+	if reqCount >= len(records) {
+		t.Fatalf("requests = %d, want fewer than %d without --continue-on-error", reqCount, len(records))
 	}
 }
 
