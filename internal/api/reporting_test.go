@@ -155,6 +155,26 @@ func TestParseReportingCountMissingCountValue(t *testing.T) {
 	}
 }
 
+func TestReportingValueToIntRejectsOutOfRangeJSONNumber(t *testing.T) {
+	_, err := reportingValueToInt(json.Number("9223372036854775808"))
+	if err == nil {
+		t.Fatal("reportingValueToInt() error = nil, expected out of range error")
+	}
+	if !strings.Contains(err.Error(), "out of range") {
+		t.Fatalf("error = %v, expected out of range", err)
+	}
+}
+
+func TestReportingValueToIntRejectsOutOfRangeString(t *testing.T) {
+	_, err := reportingValueToInt("9223372036854775808")
+	if err == nil {
+		t.Fatal("reportingValueToInt() error = nil, expected out of range error")
+	}
+	if !strings.Contains(err.Error(), "out of range") {
+		t.Fatalf("error = %v, expected out of range", err)
+	}
+}
+
 func TestClient_CountServerError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)

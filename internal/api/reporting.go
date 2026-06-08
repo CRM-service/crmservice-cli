@@ -195,11 +195,17 @@ func reportingValueToInt(value interface{}) (int, error) {
 		if err != nil {
 			return 0, err
 		}
+		if parsed > int64(math.MaxInt) || parsed < int64(math.MinInt) {
+			return 0, fmt.Errorf("count value out of range: %d", parsed)
+		}
 		return int(parsed), nil
 	case string:
 		var parsed int64
 		if _, err := fmt.Sscan(typed, &parsed); err != nil {
 			return 0, err
+		}
+		if parsed > int64(math.MaxInt) || parsed < int64(math.MinInt) {
+			return 0, fmt.Errorf("count value out of range: %d", parsed)
 		}
 		return int(parsed), nil
 	default:
