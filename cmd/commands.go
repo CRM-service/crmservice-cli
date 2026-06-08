@@ -498,7 +498,9 @@ func runListCommand(cmd *cobra.Command, args []string, filterOverride string) er
 	}
 
 	if include != "" {
-		opts.AddInclude(include)
+		for _, rel := range splitCommaSeparated(include) {
+			opts.AddInclude(rel)
+		}
 	}
 
 	var outputFields []string

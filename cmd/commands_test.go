@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -517,6 +518,66 @@ func TestSearchCmd(t *testing.T) {
 			t.Error("search should not expose --filter because the filter is positional")
 		}
 	})
+}
+
+func TestSplitCommaSeparated(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []string
+	}{
+		{name: "single value", input: "owner", expected: []string{"owner"}},
+		{name: "comma separated", input: "owner,contacts", expected: []string{"owner", "contacts"}},
+		{name: "trims spaces", input: "owner, contacts", expected: []string{"owner", "contacts"}},
+		{name: "drops empty parts", input: "owner,,contacts", expected: []string{"owner", "contacts"}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := splitCommaSeparated(tc.input)
+			if len(got) != len(tc.expected) {
+				t.Fatalf("splitCommaSeparated(%q) = %v, want %v", tc.input, got, tc.expected)
+			}
+			for i := range tc.expected {
+				if got[i] != tc.expected[i] {
+					t.Fatalf("splitCommaSeparated(%q) = %v, want %v", tc.input, got, tc.expected)
+				}
+			}
+		})
+	}
+}
+
+func TestRunListCommandSplitsIncludeFlag(t *testing.T) {
+	var gotInclude string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/accounts") {
+			gotInclude = r.URL.Query().Get("include")
+		}
+		w.Header().Set("Content-Type", "application/vnd.api+json")
+		writeTestResponse(t, w, `{"data":[]}`)
+	}))
+	defer server.Close()
+
+	oldCfg := cfg
+	cfg = &config.Config{
+		API:  config.APIConfig{URL: server.URL + "/api/v1", Timeout: 5},
+		Auth: config.AuthConfig{Token: "token"},
+	}
+	t.Cleanup(func() { cfg = oldCfg })
+
+	cmd := listCmd()
+	cmd.SetContext(context.Background())
+	if err := cmd.Flags().Set("include", "owner, contacts"); err != nil {
+		t.Fatalf("Set(include) error: %v", err)
+	}
+
+	if err := runListCommand(cmd, []string{"accounts"}, ""); err != nil {
+		t.Fatalf("runListCommand() error: %v", err)
+	}
+	if gotInclude != "owner,contacts" {
+		t.Errorf("include query = %q, want owner,contacts", gotInclude)
+	}
 }
 
 func TestModulesCmd(t *testing.T) {
