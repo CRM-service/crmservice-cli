@@ -13,6 +13,20 @@ import (
 	"time"
 )
 
+const maxResponseBodySize = 32 << 20 // 32 MiB
+
+func readResponseBody(r io.Reader) ([]byte, error) {
+	limited := io.LimitReader(r, maxResponseBodySize+1)
+	body, err := io.ReadAll(limited)
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(body)) > maxResponseBodySize {
+		return nil, fmt.Errorf("response body exceeds limit of %d bytes", maxResponseBodySize)
+	}
+	return body, nil
+}
+
 type Client struct {
 	BaseURL        string
 	AuthToken      string
@@ -221,7 +235,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body interface{}, 
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := readResponseBody(resp.Body)
 	if err != nil {
 		return err
 	}

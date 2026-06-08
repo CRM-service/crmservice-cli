@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -972,6 +973,26 @@ func TestRedactHeaders(t *testing.T) {
 	}
 	if redacted["Accept"] != "application/json" {
 		t.Errorf("Accept = %q, expected application/json", redacted["Accept"])
+	}
+}
+
+func TestReadResponseBodyRejectsOversizedPayload(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/vnd.api+json")
+		w.WriteHeader(http.StatusOK)
+		if _, err := w.Write(bytes.Repeat([]byte("x"), maxResponseBodySize+1)); err != nil {
+			t.Fatalf("Write() failed: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "")
+	err := client.Do(context.Background(), "GET", "/huge", nil, nil)
+	if err == nil {
+		t.Fatal("Do() error = nil, expected oversized body error")
+	}
+	if !strings.Contains(err.Error(), "response body exceeds limit") {
+		t.Fatalf("Do() error = %v, expected body limit error", err)
 	}
 }
 
