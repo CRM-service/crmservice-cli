@@ -8,7 +8,7 @@ output:
 
 cache:
   schema_dir: "~/.cache/crmservice/schema"
-  ttl_days: 24
+  ttl_seconds: 86400
   auto_refresh: true
 
 auth:

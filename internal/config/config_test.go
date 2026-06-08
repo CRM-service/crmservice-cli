@@ -27,11 +27,35 @@ func TestLoadConfigDefaults(t *testing.T) {
 	if cfg.Output.PageSize != 20 {
 		t.Errorf("Output.PageSize = %d, expected 20", cfg.Output.PageSize)
 	}
-	if cfg.Cache.TTLDays != 24 {
-		t.Errorf("Cache.TTLDays = %d, expected 24", cfg.Cache.TTLDays)
+	if cfg.Cache.TTLSeconds != 86400 {
+		t.Errorf("Cache.TTLSeconds = %d, expected 86400", cfg.Cache.TTLSeconds)
 	}
 	if cfg.Cache.SchemaDir != filepath.Join(cacheDir, "crmservice", "schema") {
 		t.Errorf("Cache.SchemaDir = %q", cfg.Cache.SchemaDir)
+	}
+	if !cfg.Cache.AutoRefresh {
+		t.Error("Cache.AutoRefresh = false, expected true")
+	}
+}
+
+func TestLoadConfigPartialCachePreservesDefaults(t *testing.T) {
+	clearEnv(t)
+	setConfigDir(t, t.TempDir())
+
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	content := []byte(`cache:
+  ttl_seconds: 3600
+`)
+	if err := os.WriteFile(path, content, 0o600); err != nil {
+		t.Fatalf("WriteFile() returned error: %v", err)
+	}
+
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig() returned error: %v", err)
+	}
+	if cfg.Cache.TTLSeconds != 3600 {
+		t.Errorf("Cache.TTLSeconds = %d, expected 3600", cfg.Cache.TTLSeconds)
 	}
 	if !cfg.Cache.AutoRefresh {
 		t.Error("Cache.AutoRefresh = false, expected true")
@@ -50,7 +74,7 @@ output:
   page_size: 50
 cache:
   schema_dir: "/tmp/schema"
-  ttl_days: 7
+  ttl_seconds: 604800
   auto_refresh: false
 auth:
   token: "token-from-file"
@@ -73,7 +97,7 @@ auth:
 	if cfg.Output.Format != "json" || cfg.Output.PageSize != 50 {
 		t.Errorf("Output = %+v", cfg.Output)
 	}
-	if cfg.Cache.SchemaDir != "/tmp/schema" || cfg.Cache.TTLDays != 7 || cfg.Cache.AutoRefresh {
+	if cfg.Cache.SchemaDir != "/tmp/schema" || cfg.Cache.TTLSeconds != 604800 || cfg.Cache.AutoRefresh {
 		t.Errorf("Cache = %+v", cfg.Cache)
 	}
 	if cfg.Auth.Token != "token-from-file" {
@@ -178,7 +202,7 @@ func TestLoadConfigEnvOverrides(t *testing.T) {
 	t.Setenv("CRMSERVICE_PAGE_SIZE", "99")
 	t.Setenv("CRMSERVICE_TIMEOUT", "45")
 	t.Setenv("CRMSERVICE_CACHE_DIR", "/tmp/env-cache")
-	t.Setenv("CRMSERVICE_CACHE_TTL_DAYS", "3")
+	t.Setenv("CRMSERVICE_CACHE_TTL_SECONDS", "1800")
 	t.Setenv("CRMSERVICE_CACHE_AUTO_REFRESH", "false")
 
 	cfg, err := LoadConfig("")
@@ -201,8 +225,8 @@ func TestLoadConfigEnvOverrides(t *testing.T) {
 	if cfg.Cache.SchemaDir != "/tmp/env-cache" {
 		t.Errorf("Cache.SchemaDir = %q", cfg.Cache.SchemaDir)
 	}
-	if cfg.Cache.TTLDays != 3 {
-		t.Errorf("Cache.TTLDays = %d", cfg.Cache.TTLDays)
+	if cfg.Cache.TTLSeconds != 1800 {
+		t.Errorf("Cache.TTLSeconds = %d", cfg.Cache.TTLSeconds)
 	}
 	if cfg.Cache.AutoRefresh {
 		t.Error("Cache.AutoRefresh = true, expected false")
@@ -264,7 +288,7 @@ func TestLoadConfigRejectsInvalidEnvVars(t *testing.T) {
 		{"output format", "CRMSERVICE_OUTPUT_FORMAT", "xml"},
 		{"page size", "CRMSERVICE_PAGE_SIZE", "not-a-number"},
 		{"timeout", "CRMSERVICE_TIMEOUT", "abc"},
-		{"cache ttl days", "CRMSERVICE_CACHE_TTL_DAYS", "many"},
+		{"cache ttl seconds", "CRMSERVICE_CACHE_TTL_SECONDS", "many"},
 		{"cache auto refresh", "CRMSERVICE_CACHE_AUTO_REFRESH", "maybe"},
 	}
 
@@ -315,7 +339,7 @@ func clearEnv(t *testing.T) {
 		"CRMSERVICE_PAGE_SIZE",
 		"CRMSERVICE_TIMEOUT",
 		"CRMSERVICE_CACHE_DIR",
-		"CRMSERVICE_CACHE_TTL_DAYS",
+		"CRMSERVICE_CACHE_TTL_SECONDS",
 		"CRMSERVICE_CACHE_AUTO_REFRESH",
 	} {
 		t.Setenv(key, "")

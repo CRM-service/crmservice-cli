@@ -74,7 +74,7 @@ output:
 
 cache:
   schema_dir: ""          # default: OS cache dir / crmservice/schema
-  ttl_days: 24
+  ttl_seconds: 86400
   auto_refresh: true
 
 auth:
@@ -91,8 +91,8 @@ auth:
 | `output.format` | Default output: `table`, `json`, `yaml`, `jsonl`, `csv` |
 | `output.page_size` | Default page size |
 | `cache.schema_dir` | Schema cache directory (`~` expanded) |
-| `cache.ttl_days` | Schema cache TTL (days) |
-| `cache.auto_refresh` | Refresh cache when missing or expired |
+| `cache.ttl_seconds` | Schema cache TTL in seconds (default `86400` = 24 hours) |
+| `cache.auto_refresh` | Refresh cache when missing or expired (default `true`) |
 | `auth.token` | Bearer token |
 
 ### Environment variables
@@ -105,7 +105,7 @@ auth:
 | `CRMSERVICE_PAGE_SIZE` | Default page size |
 | `CRMSERVICE_TIMEOUT` | Request timeout (seconds) |
 | `CRMSERVICE_CACHE_DIR` | Schema cache directory |
-| `CRMSERVICE_CACHE_TTL_DAYS` | Schema cache TTL (days) |
+| `CRMSERVICE_CACHE_TTL_SECONDS` | Schema cache TTL (seconds) |
 | `CRMSERVICE_CACHE_AUTO_REFRESH` | `true` or `false` |
 
 ### Global flags
@@ -121,7 +121,7 @@ Available on every command:
 | `-o`, `--output` | Output format |
 | `--page-size` | Default page size |
 | `--cache-dir` | Schema cache directory |
-| `--cache-ttl-days` | Schema cache TTL (days) |
+| `--cache-ttl-seconds` | Schema cache TTL (seconds) |
 | `--cache-auto-refresh` | Auto-refresh schema cache |
 
 Commands may define additional flags (`--filter`, `--all`, `--verbose`, …). Per-command `-o` overrides the global default.
@@ -269,7 +269,7 @@ Default schema cache locations:
 | macOS | `~/Library/Caches/crmservice/schema/` |
 | Windows | `%LocalAppData%\crmservice\schema\` |
 
-TTL defaults to 24 days (`cache.ttl_days`).
+TTL defaults to 24 hours (`cache.ttl_seconds: 86400`). Auto-refresh is on by default (`cache.auto_refresh: true`).
 
 ### Filters
 

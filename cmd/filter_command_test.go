@@ -19,7 +19,7 @@ func setupFilterCommandTestConfig(t *testing.T) {
 		},
 		Cache: config.CacheConfig{
 			SchemaDir:   t.TempDir(),
-			TTLDays:     1,
+			TTLSeconds:  1,
 			AutoRefresh: true,
 		},
 		API: config.APIConfig{Timeout: 30},

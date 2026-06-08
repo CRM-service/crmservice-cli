@@ -283,7 +283,7 @@ func readStdinJSONAPIRequest(stdin *os.File) (map[string]interface{}, bool, erro
 func getSchemaBody(module, url, token string, verbose int, force bool) ([]byte, error) {
 	schemaCache := cache.NewSchemaCache(getSchemaCacheDir(url))
 	if cfg != nil {
-		schemaCache.TTLDays = cfg.Cache.TTLDays
+		schemaCache.TTLSeconds = cfg.Cache.TTLSeconds
 		schemaCache.AutoRefresh = cfg.Cache.AutoRefresh
 	}
 

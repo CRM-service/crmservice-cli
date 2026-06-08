@@ -30,7 +30,7 @@ func TestCreateCmdRejectsUnknownFieldAgainstSchema(t *testing.T) {
 		Auth: config.AuthConfig{Token: "token"},
 		Cache: config.CacheConfig{
 			SchemaDir:   t.TempDir(),
-			TTLDays:     1,
+			TTLSeconds:  1,
 			AutoRefresh: true,
 		},
 	}
@@ -70,7 +70,7 @@ func TestUpdateCmdRejectsUnknownFieldAgainstSchema(t *testing.T) {
 		Auth: config.AuthConfig{Token: "token"},
 		Cache: config.CacheConfig{
 			SchemaDir:   t.TempDir(),
-			TTLDays:     1,
+			TTLSeconds:  1,
 			AutoRefresh: true,
 		},
 	}

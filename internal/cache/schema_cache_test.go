@@ -9,7 +9,6 @@ import (
 
 func TestSchemaCacheSaveLoadPersistsTTL(t *testing.T) {
 	cache := NewSchemaCache(t.TempDir())
-	cache.TTLDays = 1
 
 	body := []byte(`{"attributes":{"name":{"type":"string"}}}`)
 	if err := cache.Save("accounts", body); err != nil {
@@ -27,12 +26,12 @@ func TestSchemaCacheSaveLoadPersistsTTL(t *testing.T) {
 
 func TestSchemaCacheLoadRejectsExpiredCache(t *testing.T) {
 	cache := NewSchemaCache(t.TempDir())
-	cache.TTLDays = 1
+	cache.TTLSeconds = DefaultTTLSeconds
 
 	cached := CachedSchema{
 		Module:    "accounts",
 		Data:      []byte(`{}`),
-		FetchedAt: time.Now().Add(-48 * time.Hour),
+		FetchedAt: time.Now().Add(-25 * time.Hour),
 	}
 	data, err := json.Marshal(cached)
 	if err != nil {
@@ -52,7 +51,7 @@ func TestSchemaCacheLoadRejectsExpiredCache(t *testing.T) {
 
 func TestSchemaCacheLoadAcceptsExpiredCacheWhenTTLDisabled(t *testing.T) {
 	cache := NewSchemaCache(t.TempDir())
-	cache.TTLDays = 0
+	cache.TTLSeconds = 0
 
 	cached := CachedSchema{
 		Module:    "accounts",

@@ -43,7 +43,7 @@ func TestRunDoctorChecksAllOK(t *testing.T) {
 		Auth: config.AuthConfig{Token: "token"},
 		Cache: config.CacheConfig{
 			SchemaDir:   cacheDir,
-			TTLDays:     1,
+			TTLSeconds:  1,
 			AutoRefresh: true,
 		},
 	}

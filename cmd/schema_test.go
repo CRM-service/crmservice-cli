@@ -45,7 +45,7 @@ func TestValidateModuleAttributesRejectsUnknownField(t *testing.T) {
 	cfg = &config.Config{
 		Cache: config.CacheConfig{
 			SchemaDir:   t.TempDir(),
-			TTLDays:     1,
+			TTLSeconds:  1,
 			AutoRefresh: true,
 		},
 		API: config.APIConfig{Timeout: 30},
@@ -72,7 +72,7 @@ func TestValidateFilterJSONAgainstModuleRejectsUnknownBareField(t *testing.T) {
 	cfg = &config.Config{
 		Cache: config.CacheConfig{
 			SchemaDir:   t.TempDir(),
-			TTLDays:     1,
+			TTLSeconds:  1,
 			AutoRefresh: true,
 		},
 		API: config.APIConfig{Timeout: 30},
@@ -113,7 +113,7 @@ func TestValidateFilterJSONAgainstModuleRejectsUnknownField(t *testing.T) {
 	cfg = &config.Config{
 		Cache: config.CacheConfig{
 			SchemaDir:   t.TempDir(),
-			TTLDays:     1,
+			TTLSeconds:  1,
 			AutoRefresh: true,
 		},
 		API: config.APIConfig{Timeout: 30},
@@ -137,7 +137,7 @@ func TestValidateFilterJSONAgainstModuleAcceptsKnownField(t *testing.T) {
 	cfg = &config.Config{
 		Cache: config.CacheConfig{
 			SchemaDir:   t.TempDir(),
-			TTLDays:     1,
+			TTLSeconds:  1,
 			AutoRefresh: true,
 		},
 		API: config.APIConfig{Timeout: 30},
@@ -160,7 +160,7 @@ func TestValidateFilterJSONAgainstModuleAcceptsKnownBareField(t *testing.T) {
 	cfg = &config.Config{
 		Cache: config.CacheConfig{
 			SchemaDir:   t.TempDir(),
-			TTLDays:     1,
+			TTLSeconds:  1,
 			AutoRefresh: true,
 		},
 		API: config.APIConfig{Timeout: 30},
@@ -192,7 +192,7 @@ func TestValidateFilterJSONAgainstModuleValidatesRelatedBareField(t *testing.T) 
 	cfg = &config.Config{
 		Cache: config.CacheConfig{
 			SchemaDir:   t.TempDir(),
-			TTLDays:     1,
+			TTLSeconds:  1,
 			AutoRefresh: true,
 		},
 		API: config.APIConfig{Timeout: 30},
@@ -227,7 +227,7 @@ func TestValidateFilterJSONAgainstModuleValidatesRelationTypeField(t *testing.T)
 	cfg = &config.Config{
 		Cache: config.CacheConfig{
 			SchemaDir:   t.TempDir(),
-			TTLDays:     1,
+			TTLSeconds:  1,
 			AutoRefresh: true,
 		},
 		API: config.APIConfig{Timeout: 30},
@@ -262,7 +262,7 @@ func TestValidateFilterJSONAgainstModuleValidatesDeclaredRelation(t *testing.T) 
 	cfg = &config.Config{
 		Cache: config.CacheConfig{
 			SchemaDir:   t.TempDir(),
-			TTLDays:     1,
+			TTLSeconds:  1,
 			AutoRefresh: true,
 		},
 		API: config.APIConfig{Timeout: 30},
@@ -297,7 +297,7 @@ func TestValidateFilterJSONAgainstModuleValidatesRelatedField(t *testing.T) {
 	cfg = &config.Config{
 		Cache: config.CacheConfig{
 			SchemaDir:   t.TempDir(),
-			TTLDays:     1,
+			TTLSeconds:  1,
 			AutoRefresh: true,
 		},
 		API: config.APIConfig{Timeout: 30},

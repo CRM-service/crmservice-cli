@@ -29,7 +29,7 @@ output:
 
 cache:
   schema_dir: ""
-  ttl_days: 24
+  ttl_seconds: 86400
   auto_refresh: true
 
 auth:
@@ -43,8 +43,8 @@ auth:
 | `output.format` | Default output format: `table`, `json`, `yaml`, `jsonl`, or `csv` |
 | `output.page_size` | Default page size for paginated commands |
 | `cache.schema_dir` | Schema cache directory (`~` paths are expanded; empty uses OS default) |
-| `cache.ttl_days` | Schema cache TTL in days |
-| `cache.auto_refresh` | Refresh cache when missing or expired |
+| `cache.ttl_seconds` | Schema cache TTL in seconds (default `86400` = 24 hours) |
+| `cache.auto_refresh` | Refresh cache when missing or expired (default `true`) |
 | `auth.token` | Bearer token |
 
 ## Environment variables
@@ -57,7 +57,7 @@ auth:
 | `CRMSERVICE_PAGE_SIZE` | Default page size |
 | `CRMSERVICE_TIMEOUT` | Request timeout in seconds |
 | `CRMSERVICE_CACHE_DIR` | Schema cache directory |
-| `CRMSERVICE_CACHE_TTL_DAYS` | Schema cache TTL in days |
+| `CRMSERVICE_CACHE_TTL_SECONDS` | Schema cache TTL in seconds |
 | `CRMSERVICE_CACHE_AUTO_REFRESH` | `true` or `false` |
 
 Authentication must always be available via config file, environment variable, or `--token`.
@@ -75,7 +75,7 @@ Available on every command:
 | `-o`, `--output` | Default output format (overrides config) |
 | `--page-size` | Default page size (overrides config) |
 | `--cache-dir` | Schema cache directory (overrides config) |
-| `--cache-ttl-days` | Schema cache TTL in days (overrides config) |
+| `--cache-ttl-seconds` | Schema cache TTL in seconds (overrides config) |
 | `--cache-auto-refresh` | Refresh schema cache automatically (overrides config) |
 
 Individual commands add their own flags (for example `--filter`, `--all`, `--verbose`, `--full`). Command-level `-o` / `--output` overrides the global default when set.
