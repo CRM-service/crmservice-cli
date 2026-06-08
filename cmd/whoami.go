@@ -57,7 +57,10 @@ func whoamiCmd() *cobra.Command {
 			user, err := fetchCurrentUser(cmd.Context(), url, token)
 			if err != nil {
 				if isUnauthorizedError(err) {
-					return outputWhoami(outputFormat, unauthenticatedWhoami(url, "invalid_token"))
+					if err := outputWhoami(outputFormat, unauthenticatedWhoami(url, "invalid_token")); err != nil {
+						return err
+					}
+					return &output.ReportedError{Err: fmt.Errorf("API token is invalid or unauthorized")}
 				}
 				return output.ErrorResponse(err)
 			}
