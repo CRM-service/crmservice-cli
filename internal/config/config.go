@@ -81,6 +81,9 @@ func LoadConfig(configFile string) (*Config, error) {
 	if err := applyEnv(config); err != nil {
 		return nil, err
 	}
+	if err := validateConfig(config); err != nil {
+		return nil, err
+	}
 	ExpandPaths(config)
 
 	return config, nil
@@ -120,6 +123,9 @@ func applyEnv(config *Config) error {
 		if err != nil {
 			return fmt.Errorf("invalid CRMSERVICE_PAGE_SIZE: %q", value)
 		}
+		if err := validatePageSize(pageSize, "CRMSERVICE_PAGE_SIZE"); err != nil {
+			return err
+		}
 		config.Output.PageSize = pageSize
 	}
 	if value := os.Getenv("CRMSERVICE_TIMEOUT"); value != "" {
@@ -145,6 +151,20 @@ func applyEnv(config *Config) error {
 			return fmt.Errorf("invalid CRMSERVICE_CACHE_AUTO_REFRESH: %q", value)
 		}
 		config.Cache.AutoRefresh = autoRefresh
+	}
+	return nil
+}
+
+func validateConfig(config *Config) error {
+	if err := validatePageSize(config.Output.PageSize, "output.page_size"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validatePageSize(pageSize int, source string) error {
+	if pageSize < 1 {
+		return fmt.Errorf("invalid %s: %d (must be at least 1)", source, pageSize)
 	}
 	return nil
 }

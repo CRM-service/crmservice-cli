@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -205,6 +206,52 @@ func TestLoadConfigEnvOverrides(t *testing.T) {
 	}
 	if cfg.Cache.AutoRefresh {
 		t.Error("Cache.AutoRefresh = true, expected false")
+	}
+}
+
+func TestLoadConfigRejectsInvalidPageSizeFromEnv(t *testing.T) {
+	testCases := []struct {
+		name  string
+		value string
+	}{
+		{"negative", "-5"},
+		{"zero", "0"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			clearEnv(t)
+			setConfigDir(t, t.TempDir())
+			t.Setenv("CRMSERVICE_PAGE_SIZE", tc.value)
+
+			_, err := LoadConfig("")
+			if err == nil {
+				t.Fatalf("LoadConfig() error = nil, expected invalid CRMSERVICE_PAGE_SIZE")
+			}
+			if !strings.Contains(err.Error(), "CRMSERVICE_PAGE_SIZE") {
+				t.Fatalf("error = %v, expected CRMSERVICE_PAGE_SIZE mention", err)
+			}
+		})
+	}
+}
+
+func TestLoadConfigRejectsInvalidPageSizeFromYAML(t *testing.T) {
+	clearEnv(t)
+
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	content := []byte(`output:
+  page_size: -1
+`)
+	if err := os.WriteFile(path, content, 0o600); err != nil {
+		t.Fatalf("WriteFile() returned error: %v", err)
+	}
+
+	_, err := LoadConfig(path)
+	if err == nil {
+		t.Fatal("LoadConfig() error = nil, expected invalid output.page_size")
+	}
+	if !strings.Contains(err.Error(), "output.page_size") {
+		t.Fatalf("error = %v, expected output.page_size mention", err)
 	}
 }
 
