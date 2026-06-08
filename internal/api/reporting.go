@@ -137,7 +137,13 @@ func (c *Client) logReportingRequest(body interface{}) {
 }
 
 func parseReportingCount(resp *ReportingResponse) (int, error) {
-	if resp == nil || len(resp.Data) == 0 {
+	if resp == nil {
+		return 0, fmt.Errorf("reporting response is nil")
+	}
+	if len(resp.Data) == 0 {
+		if resp.Meta.Results > 0 {
+			return 0, fmt.Errorf("reporting response missing data rows")
+		}
 		return 0, nil
 	}
 

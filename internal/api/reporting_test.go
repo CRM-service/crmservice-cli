@@ -141,6 +141,32 @@ func TestParseReportingCountUsesCountValueField(t *testing.T) {
 	}
 }
 
+func TestParseReportingCountEmptyDataWithResults(t *testing.T) {
+	_, err := parseReportingCount(&ReportingResponse{
+		Meta: ReportingMeta{Results: 1, Fields: []string{"count_value"}},
+		Data: []map[string]interface{}{},
+	})
+	if err == nil {
+		t.Fatal("parseReportingCount() error = nil, expected missing data rows error")
+	}
+	if !strings.Contains(err.Error(), "missing data rows") {
+		t.Fatalf("error = %v, expected missing data rows", err)
+	}
+}
+
+func TestParseReportingCountEmptyDataWithoutResults(t *testing.T) {
+	count, err := parseReportingCount(&ReportingResponse{
+		Meta: ReportingMeta{Results: 0, Fields: []string{"count_value"}},
+		Data: []map[string]interface{}{},
+	})
+	if err != nil {
+		t.Fatalf("parseReportingCount() returned error: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("count = %d, expected 0", count)
+	}
+}
+
 func TestParseReportingCountMissingCountValue(t *testing.T) {
 	_, err := parseReportingCount(&ReportingResponse{
 		Data: []map[string]interface{}{
