@@ -43,6 +43,12 @@ func NewClient(baseURL, authToken string) *Client {
 	}
 }
 
+var sensitiveLogHeaderNames = map[string]bool{
+	"authorization": true,
+	"cookie":        true,
+	"set-cookie":    true,
+}
+
 func (c *Client) requestHeaders(method string) map[string]string {
 	headers := make(map[string]string, len(c.DefaultHeaders))
 	for key, value := range c.DefaultHeaders {
@@ -54,13 +60,33 @@ func (c *Client) requestHeaders(method string) map[string]string {
 	return headers
 }
 
+func (c *Client) outboundRequestHeaders(method string) map[string]string {
+	headers := c.requestHeaders(method)
+	if c.AuthToken != "" {
+		headers["Authorization"] = "Bearer " + c.AuthToken
+	}
+	return headers
+}
+
+func redactHeaders(headers map[string]string) map[string]string {
+	redacted := make(map[string]string, len(headers))
+	for key, value := range headers {
+		if sensitiveLogHeaderNames[strings.ToLower(key)] {
+			redacted[key] = "[redacted]"
+			continue
+		}
+		redacted[key] = value
+	}
+	return redacted
+}
+
 func (c *Client) logRequest(method, path string) {
 	if c.Verbose >= 1 {
 		reqURL := c.BaseURL + "/" + strings.TrimPrefix(path, "/")
 		fmt.Fprintf(os.Stderr, "[REQUEST] %s %s\n", method, reqURL)
 	}
 	if c.Verbose >= 2 {
-		fmt.Fprintf(os.Stderr, "[REQUEST HEADERS] %v\n", c.requestHeaders(method))
+		fmt.Fprintf(os.Stderr, "[REQUEST HEADERS] %v\n", redactHeaders(c.outboundRequestHeaders(method)))
 	}
 }
 

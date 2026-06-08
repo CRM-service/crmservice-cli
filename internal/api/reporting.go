@@ -120,6 +120,15 @@ func (c *Client) logReportingRequest(body interface{}) {
 		fmt.Fprintf(os.Stderr, "[REQUEST] POST %s/reporting\n", c.BaseURL)
 	}
 	if c.Verbose >= 2 {
+		headers := map[string]string{
+			"Content-Type": "application/json",
+			"Accept":       "application/json",
+		}
+		if c.AuthToken != "" {
+			headers["Authorization"] = "Bearer " + c.AuthToken
+		}
+		fmt.Fprintf(os.Stderr, "[REQUEST HEADERS] %v\n", redactHeaders(headers))
+
 		payload, err := json.Marshal(body)
 		if err == nil {
 			fmt.Fprintf(os.Stderr, "[REQUEST BODY]\n%s\n", string(payload))
