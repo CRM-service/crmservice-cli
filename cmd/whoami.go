@@ -42,10 +42,16 @@ func whoamiCmd() *cobra.Command {
 			}
 
 			if url == "" {
-				return outputWhoami(outputFormat, unauthenticatedWhoami(url, "missing_url"))
+				if err := outputWhoami(outputFormat, unauthenticatedWhoami(url, "missing_url")); err != nil {
+					return err
+				}
+				return &output.ReportedError{Err: fmt.Errorf("CRM URL not provided")}
 			}
 			if token == "" {
-				return outputWhoami(outputFormat, unauthenticatedWhoami(url, "missing_token"))
+				if err := outputWhoami(outputFormat, unauthenticatedWhoami(url, "missing_token")); err != nil {
+					return err
+				}
+				return &output.ReportedError{Err: fmt.Errorf("API token not provided")}
 			}
 
 			user, err := fetchCurrentUser(cmd.Context(), url, token)

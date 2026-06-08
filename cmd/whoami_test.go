@@ -138,6 +138,23 @@ func TestWhoamiCmdAPIErrorUsesStructuredOutput(t *testing.T) {
 	}
 }
 
+func TestWhoamiCmdMissingCredentialsExitError(t *testing.T) {
+	oldCfg := cfg
+	cfg = nil
+	t.Setenv("CRMSERVICE_API_URL", "")
+	t.Setenv("CRMSERVICE_AUTH_TOKEN", "")
+	t.Cleanup(func() { cfg = oldCfg })
+
+	cmd := whoamiCmd()
+	cmd.SilenceErrors = true
+	cmd.SilenceUsage = true
+	cmd.SetArgs([]string{"-o", "json"})
+
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("Execute() error = nil, expected missing credentials error")
+	}
+}
+
 func TestUnauthenticatedWhoamiReasons(t *testing.T) {
 	testCases := []struct {
 		reason  string
