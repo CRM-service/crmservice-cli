@@ -67,7 +67,6 @@ func whoamiCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
-	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
 
 	return cmd
 }
