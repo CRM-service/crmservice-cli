@@ -172,9 +172,17 @@ func getBodyInput(cmd *cobra.Command, id, operation string) (*bodyInput, error) 
 		if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" {
 			return nil, fmt.Errorf("invalid --field %q: expected name=value", f)
 		}
-		data[strings.TrimSpace(parts[0])] = parts[1]
+		data[strings.TrimSpace(parts[0])] = parseFieldValue(parts[1])
 	}
 	return &bodyInput{body: data}, nil
+}
+
+func parseFieldValue(value string) interface{} {
+	var parsed interface{}
+	if err := json.Unmarshal([]byte(value), &parsed); err == nil {
+		return parsed
+	}
+	return value
 }
 
 func readStdinBodyInput(stdin *os.File, id, operation string) (*bodyInput, bool, error) {
