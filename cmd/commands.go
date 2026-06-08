@@ -307,7 +307,10 @@ func getSchemaBody(module, url, token string, verbose int, force bool) ([]byte, 
 		return nil, err
 	}
 	if err := schemaCache.Save(module, body); err != nil {
-		return nil, fmt.Errorf("failed to save schema cache: %w", err)
+		if verbose >= 1 {
+			fmt.Fprintf(os.Stderr, "[CACHE] SAVE FAILED %s: %v\n", schemaCache.GetPath(module), err)
+		}
+		return body, nil
 	}
 	return body, nil
 }

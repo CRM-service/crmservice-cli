@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -273,6 +274,43 @@ func TestGetSchemaBodyUsesPersistedCache(t *testing.T) {
 	}
 	if requests != 1 {
 		t.Errorf("requests = %d, expected 1", requests)
+	}
+}
+
+func TestGetSchemaBodyReturnsDataWhenCacheSaveFails(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeTestResponse(t, w, `{"attributes":{"name":{"type":"string"}}}`)
+	}))
+	defer server.Close()
+
+	oldCfg := cfg
+	cacheRoot := t.TempDir()
+	schemaDir := filepath.Join(cacheRoot, "schema")
+	if err := os.WriteFile(schemaDir, []byte("not-a-dir"), 0o644); err != nil {
+		t.Fatalf("WriteFile() returned error: %v", err)
+	}
+	cfg = &config.Config{
+		Cache: config.CacheConfig{
+			SchemaDir:   schemaDir,
+			TTLDays:     1,
+			AutoRefresh: true,
+		},
+		API: config.APIConfig{Timeout: 30},
+	}
+	t.Cleanup(func() { cfg = oldCfg })
+
+	url := server.URL + "/api/v1"
+	stderr := captureStderr(t, func() {
+		body, err := getSchemaBody("accounts", url, "token", 1, false)
+		if err != nil {
+			t.Fatalf("getSchemaBody() returned error: %v", err)
+		}
+		if !strings.Contains(string(body), `"name"`) {
+			t.Fatalf("body = %s, expected fetched schema", body)
+		}
+	})
+	if !strings.Contains(stderr, "[CACHE] SAVE FAILED") {
+		t.Fatalf("stderr = %q, expected cache save failure warning", stderr)
 	}
 }
 
