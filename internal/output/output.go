@@ -239,20 +239,22 @@ func outputCSV(v interface{}, opts Options) error {
 			return nil
 		}
 
-		if recs, err := extractCSVRecords(resp.Data, opts.Fields, opts.Full, opts.Columns); err == nil {
-			records = recs
+		recs, err := extractCSVRecords(resp.Data, opts.Fields, opts.Full, opts.Columns)
+		if err != nil {
+			return err
 		}
+		records = recs
 	} else if single, ok := v.(*api.SingleResponse); ok {
 		if single.Data == nil {
 			fmt.Println("No data found")
 			return nil
 		}
 
-		if recs, err := extractCSVRecords(single.Data, opts.Fields, opts.Full, opts.Columns); err == nil {
-			if len(recs) > 0 {
-				records = recs
-			}
+		recs, err := extractCSVRecords(single.Data, opts.Fields, opts.Full, opts.Columns)
+		if err != nil {
+			return err
 		}
+		records = recs
 	}
 
 	if len(records) > 0 {
@@ -450,7 +452,11 @@ func outputTableItemData(data interface{}, fields []string, full bool, columns [
 func extractCSVRecords(data interface{}, fields []string, full bool, columns []string) ([][]string, error) {
 	dataVal := reflect.ValueOf(data)
 
-	if dataVal.Kind() != reflect.Slice {
+	switch dataVal.Kind() {
+	case reflect.Map:
+		return extractCSVRecords([]interface{}{data}, fields, full, columns)
+	case reflect.Slice:
+	default:
 		return nil, nil
 	}
 

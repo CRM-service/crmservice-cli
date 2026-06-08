@@ -174,12 +174,10 @@ func TestItemResponseYAML(t *testing.T) {
 
 func TestItemResponseCSV(t *testing.T) {
 	resp := &api.SingleResponse{
-		Data: []interface{}{
-			map[string]interface{}{
-				"id":         "1",
-				"type":       "test",
-				"attributes": map[string]interface{}{"name": "test1"},
-			},
+		Data: map[string]interface{}{
+			"id":         "1",
+			"type":       "test",
+			"attributes": map[string]interface{}{"name": "test1"},
 		},
 	}
 
