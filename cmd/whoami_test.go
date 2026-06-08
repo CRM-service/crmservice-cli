@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"crmservice/internal/api"
+	"crmservice/internal/config"
 )
 
 func TestWhoamiCmd(t *testing.T) {
@@ -103,6 +104,37 @@ func TestOutputWhoamiUnauthenticatedJSON(t *testing.T) {
 	}
 	if !strings.Contains(output, `"message": "API token not provided"`) {
 		t.Errorf("expected missing token message, got: %s", output)
+	}
+}
+
+func TestWhoamiCmdAPIErrorUsesStructuredOutput(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		if _, err := w.Write([]byte(`{"errors":[{"detail":"boom"}]}`)); err != nil {
+			t.Errorf("Write() returned error: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	oldCfg := cfg
+	cfg = &config.Config{
+		API:  config.APIConfig{URL: server.URL + "/api/v1", Timeout: 5},
+		Auth: config.AuthConfig{Token: "token"},
+	}
+	t.Cleanup(func() { cfg = oldCfg })
+
+	cmd := whoamiCmd()
+	cmd.SilenceErrors = true
+	cmd.SilenceUsage = true
+	cmd.SetArgs([]string{"-o", "json"})
+
+	stderr := captureStderr(t, func() {
+		if err := cmd.Execute(); err == nil {
+			t.Fatal("Execute() error = nil, expected API error")
+		}
+	})
+	if !strings.Contains(stderr, `"status": 500`) {
+		t.Fatalf("stderr = %q, expected structured API error", stderr)
 	}
 }
 

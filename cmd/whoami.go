@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"crmservice/internal/api"
+	"crmservice/internal/output"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -52,7 +53,7 @@ func whoamiCmd() *cobra.Command {
 				if isUnauthorizedError(err) {
 					return outputWhoami(outputFormat, unauthenticatedWhoami(url, "invalid_token"))
 				}
-				return err
+				return output.ErrorResponse(err)
 			}
 
 			return outputWhoami(outputFormat, user)
