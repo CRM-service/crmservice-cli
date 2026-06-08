@@ -955,6 +955,59 @@ func TestClientVerboseLogsToStderr(t *testing.T) {
 	}
 }
 
+func TestRedactHeaders(t *testing.T) {
+	headers := map[string]string{
+		"Authorization": "Bearer secret-token",
+		"Accept":        "application/json",
+		"Cookie":        "session=abc123",
+	}
+
+	redacted := redactHeaders(headers)
+
+	if redacted["Authorization"] != "[redacted]" {
+		t.Errorf("Authorization = %q, expected [redacted]", redacted["Authorization"])
+	}
+	if redacted["Cookie"] != "[redacted]" {
+		t.Errorf("Cookie = %q, expected [redacted]", redacted["Cookie"])
+	}
+	if redacted["Accept"] != "application/json" {
+		t.Errorf("Accept = %q, expected application/json", redacted["Accept"])
+	}
+}
+
+func TestClientVerboseDoesNotLogAuthorization(t *testing.T) {
+	const secretToken = "SECRET_TOKEN_xyz"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/vnd.api+json")
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{"data": "test"}); err != nil {
+			t.Fatalf("json.Encode() failed: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, secretToken)
+	client.Verbose = 2
+
+	stderr := captureAPIStderr(t, func() {
+		var result map[string]interface{}
+		if err := client.Do(context.Background(), "GET", "/test", nil, &result); err != nil {
+			t.Fatalf("Do() returned error: %v", err)
+		}
+	})
+
+	if strings.Contains(stderr, secretToken) {
+		t.Fatalf("stderr leaked auth token: %q", stderr)
+	}
+	if !strings.Contains(stderr, "[REQUEST HEADERS]") {
+		t.Fatalf("stderr = %q, expected request header log", stderr)
+	}
+	if !strings.Contains(stderr, "[redacted]") {
+		t.Fatalf("stderr = %q, expected redacted authorization header", stderr)
+	}
+}
+
 func captureAPIStdout(t *testing.T, fn func()) string {
 	t.Helper()
 	orig := os.Stdout
