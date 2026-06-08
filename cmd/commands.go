@@ -259,7 +259,10 @@ func bodyInputHasEmptyAttributes(input *bodyInput) bool {
 		return true
 	}
 	attrs, ok := data["attributes"].(map[string]interface{})
-	return ok && len(attrs) == 0
+	if !ok {
+		return true
+	}
+	return len(attrs) == 0
 }
 
 func readStdinJSONAPIRequest(stdin *os.File) (map[string]interface{}, bool, error) {

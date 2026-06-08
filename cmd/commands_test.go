@@ -866,6 +866,12 @@ func TestBodyInputHasEmptyAttributes(t *testing.T) {
 	if bodyInputHasEmptyAttributes(&bodyInput{raw: true, body: map[string]interface{}{"data": map[string]interface{}{"attributes": map[string]interface{}{"name": "Acme"}}}}) {
 		t.Fatal("non-empty JSON:API attributes should not be empty")
 	}
+	if !bodyInputHasEmptyAttributes(&bodyInput{raw: true, body: map[string]interface{}{"data": map[string]interface{}{"type": "accounts"}}}) {
+		t.Fatal("missing JSON:API attributes should be empty")
+	}
+	if !bodyInputHasEmptyAttributes(&bodyInput{raw: true, body: map[string]interface{}{"data": map[string]interface{}{"type": "accounts", "attributes": nil}}}) {
+		t.Fatal("null JSON:API attributes should be empty")
+	}
 }
 
 func TestReadStdinBodyInputStripsJSONAPICreateID(t *testing.T) {
