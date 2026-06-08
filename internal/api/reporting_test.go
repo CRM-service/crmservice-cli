@@ -156,11 +156,22 @@ func TestParseReportingCountMissingCountValue(t *testing.T) {
 	}
 }
 
+// On 32-bit, these values parse into int64 but exceed math.MaxInt and exercise
+// the bounds-check branches. On 64-bit math.MaxInt == math.MaxInt64, so no
+// decimal string can parse into int64 and exceed MaxInt; use MaxInt64+1 to
+// verify rejection via the parse-error path instead.
 func overIntTestValue() string {
 	if strconv.IntSize == 32 {
 		return "2147483648"
 	}
 	return "9223372036854775808"
+}
+
+func underIntTestValue() string {
+	if strconv.IntSize == 32 {
+		return "-2147483649"
+	}
+	return "-9223372036854775809"
 }
 
 func assertReportingValueRejected(t *testing.T, value interface{}) {
@@ -189,11 +200,26 @@ func TestReportingValueToIntRejectsOutOfRangeString(t *testing.T) {
 	assertReportingValueRejected(t, overIntTestValue())
 }
 
+func TestReportingValueToIntRejectsUnderflowJSONNumber(t *testing.T) {
+	assertReportingValueRejected(t, json.Number(underIntTestValue()))
+}
+
+func TestReportingValueToIntRejectsUnderflowString(t *testing.T) {
+	assertReportingValueRejected(t, underIntTestValue())
+}
+
 func TestReportingValueToIntRejectsOutOfRangeInt64(t *testing.T) {
 	if strconv.IntSize != 32 {
 		t.Skip("int64 bounds check only applies on 32-bit")
 	}
 	assertReportingValueRejected(t, int64(2147483648))
+}
+
+func TestReportingValueToIntRejectsUnderflowInt64(t *testing.T) {
+	if strconv.IntSize != 32 {
+		t.Skip("int64 bounds check only applies on 32-bit")
+	}
+	assertReportingValueRejected(t, int64(-2147483649))
 }
 
 func TestClient_CountServerError(t *testing.T) {
