@@ -286,7 +286,7 @@ func TestGetSchemaBodyReturnsDataWhenCacheSaveFails(t *testing.T) {
 	oldCfg := cfg
 	cacheRoot := t.TempDir()
 	schemaDir := filepath.Join(cacheRoot, "schema")
-	if err := os.WriteFile(schemaDir, []byte("not-a-dir"), 0o644); err != nil {
+	if err := os.WriteFile(schemaDir, []byte("not-a-dir"), 0o600); err != nil {
 		t.Fatalf("WriteFile() returned error: %v", err)
 	}
 	cfg = &config.Config{
