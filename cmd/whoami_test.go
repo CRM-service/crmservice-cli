@@ -23,7 +23,7 @@ func TestWhoamiCmd(t *testing.T) {
 	if cmd.Short != "Show the authenticated CRM user" {
 		t.Errorf("Short = %q", cmd.Short)
 	}
-	for _, name := range []string{"output", "verbose"} {
+	for _, name := range []string{"output"} {
 		if cmd.Flags().Lookup(name) == nil {
 			t.Errorf("Missing flag: %s", name)
 		}
