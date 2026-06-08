@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"net/http"
 
 	"crmservice/internal/api"
@@ -34,9 +33,6 @@ func modulesCmd() *cobra.Command {
 			outputFormat, err := getOutputFormatFromFlagConfig(cmd)
 			if err != nil {
 				return err
-			}
-			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
 			}
 
 			client := api.NewClient(url, token)

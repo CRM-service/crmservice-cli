@@ -68,9 +68,6 @@ func skillInstallCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if !ValidOutputFormat(outputFormat) {
-					return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
-				}
 				result, err := skills.CheckInstalledSkillBundle(path)
 				if err != nil {
 					return err
@@ -174,6 +171,6 @@ func outputSkillCheck(format string, data map[string]interface{}) error {
 	case "jsonl":
 		return json.NewEncoder(os.Stdout).Encode(data)
 	default:
-		return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", format)
+		return output.ValidateOutputFormat(format)
 	}
 }

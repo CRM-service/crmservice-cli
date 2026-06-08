@@ -31,9 +31,6 @@ func doctorCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
-			}
 
 			result := runDoctorChecks(cmd)
 			if err := outputDoctor(outputFormat, result); err != nil {
@@ -222,6 +219,6 @@ func outputDoctor(format string, data map[string]interface{}) error {
 		}
 		return nil
 	default:
-		return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", format)
+		return output.ValidateOutputFormat(format)
 	}
 }

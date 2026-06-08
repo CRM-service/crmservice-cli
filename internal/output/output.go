@@ -36,7 +36,7 @@ func ListResponse(resp *api.Response, opts Options) error {
 	if opts.Format == "table" {
 		return outputTable(resp, opts)
 	}
-	return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", opts.Format)
+	return ValidateOutputFormat(opts.Format)
 }
 
 func ItemResponse(resp *api.SingleResponse, opts Options) error {
@@ -55,16 +55,7 @@ func ItemResponse(resp *api.SingleResponse, opts Options) error {
 	if opts.Format == "table" {
 		return outputTableItem(resp, opts)
 	}
-	return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", opts.Format)
-}
-
-func ValidOutputFormat(format string) bool {
-	switch format {
-	case "table", "json", "yaml", "jsonl", "csv":
-		return true
-	default:
-		return false
-	}
+	return ValidateOutputFormat(opts.Format)
 }
 
 func outputJSON(v interface{}, opts Options) error {

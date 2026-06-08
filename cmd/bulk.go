@@ -92,9 +92,6 @@ func runBulkCommand(cmd *cobra.Command, module, operation string) error {
 	if err != nil {
 		return err
 	}
-	if !ValidOutputFormat(opts.OutputFormat) {
-		return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", opts.OutputFormat)
-	}
 
 	records, err := readBulkRecords(cmd.InOrStdin())
 	if err != nil {

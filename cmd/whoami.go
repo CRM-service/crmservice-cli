@@ -28,9 +28,6 @@ func whoamiCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
-			}
 
 			url, err := getOptionalURLFromFlagEnvConfig(cmd)
 			if err != nil {
@@ -183,7 +180,7 @@ func outputWhoami(format string, data map[string]interface{}) error {
 		}
 		return nil
 	default:
-		return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", format)
+		return output.ValidateOutputFormat(format)
 	}
 }
 

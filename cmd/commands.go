@@ -19,15 +19,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func ValidOutputFormat(format string) bool {
-	switch format {
-	case "table", "json", "yaml", "jsonl", "csv":
-		return true
-	default:
-		return false
-	}
-}
-
 func normalizeAPIURL(url string) string {
 	url = strings.TrimSuffix(url, "/")
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
@@ -109,6 +100,9 @@ func getOutputFormatFromFlagConfig(cmd *cobra.Command) (string, error) {
 	}
 	if !cmd.Flags().Changed("output") && cfg != nil && cfg.Output.Format != "" {
 		outputFormat = cfg.Output.Format
+	}
+	if err := output.ValidateOutputFormat(outputFormat); err != nil {
+		return "", err
 	}
 	output.SetActiveFormat(outputFormat)
 	return outputFormat, nil
@@ -419,9 +413,6 @@ func runListCommand(cmd *cobra.Command, args []string, filterOverride string) er
 		return err
 	}
 
-	if !ValidOutputFormat(outputFormat) {
-		return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
-	}
 	full, err := cmd.Flags().GetBool("full")
 	if err != nil {
 		return err
@@ -556,17 +547,11 @@ func getCmd() *cobra.Command {
 				return err
 			}
 
-			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
-			}
 			full, err := cmd.Flags().GetBool("full")
 			if err != nil {
 				return err
 			}
 
-			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
-			}
 			verbose, err := cmd.Flags().GetInt("verbose")
 			if err != nil {
 				return err
@@ -625,17 +610,11 @@ func createCmd() *cobra.Command {
 				return err
 			}
 
-			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
-			}
 			full, err := cmd.Flags().GetBool("full")
 			if err != nil {
 				return err
 			}
 
-			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
-			}
 			verbose, err := cmd.Flags().GetInt("verbose")
 			if err != nil {
 				return err
@@ -724,17 +703,11 @@ func updateCmd() *cobra.Command {
 				return err
 			}
 
-			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
-			}
 			full, err := cmd.Flags().GetBool("full")
 			if err != nil {
 				return err
 			}
 
-			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
-			}
 			verbose, err := cmd.Flags().GetInt("verbose")
 			if err != nil {
 				return err
@@ -826,9 +799,6 @@ func deleteCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
-			}
 			verbose, err := cmd.Flags().GetInt("verbose")
 			if err != nil {
 				return err
@@ -874,9 +844,6 @@ func fieldsCmd() *cobra.Command {
 				return err
 			}
 
-			if !ValidOutputFormat(outputFormat) {
-				return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
-			}
 			verbose, err := cmd.Flags().GetInt("verbose")
 			if err != nil {
 				return err

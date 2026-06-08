@@ -35,9 +35,6 @@ func runCountCommand(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	if !ValidOutputFormat(outputFormat) {
-		return fmt.Errorf("invalid output format: %s. Valid formats: table, json, yaml, jsonl, csv", outputFormat)
-	}
 
 	filterJSON := ""
 	if len(args) == 2 {
