@@ -20,6 +20,48 @@ func TestCollectFilterFieldsIncludesBareFieldKeys(t *testing.T) {
 	}
 }
 
+func TestCollectBodyAttributeFieldsFromFlatInput(t *testing.T) {
+	fields, err := collectBodyAttributeFields(&bodyInput{
+		body: map[string]interface{}{
+			"abc":  "new value",
+			"name": "Acme",
+		},
+	})
+	if err != nil {
+		t.Fatalf("collectBodyAttributeFields() returned error: %v", err)
+	}
+	if len(fields) != 2 || fields[0] != "abc" || fields[1] != "name" {
+		t.Fatalf("fields = %v, expected [abc name]", fields)
+	}
+}
+
+func TestValidateModuleAttributesRejectsUnknownField(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeTestResponse(t, w, `{"attributes":{"name":{"type":"string"}}}`)
+	}))
+	defer server.Close()
+
+	oldCfg := cfg
+	cfg = &config.Config{
+		Cache: config.CacheConfig{
+			SchemaDir:   t.TempDir(),
+			TTLDays:     1,
+			AutoRefresh: true,
+		},
+		API: config.APIConfig{Timeout: 30},
+	}
+	t.Cleanup(func() { cfg = oldCfg })
+
+	url := server.URL + "/api/v1"
+	err := validateModuleAttributes("accounts", []string{"abc"}, url, "token", 0)
+	if err == nil {
+		t.Fatal("validateModuleAttributes() error = nil, expected unknown field error")
+	}
+	if !strings.Contains(err.Error(), "abc") {
+		t.Fatalf("error = %v, expected abc", err)
+	}
+}
+
 func TestValidateFilterJSONAgainstModuleRejectsUnknownBareField(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		writeTestResponse(t, w, `{"attributes":{"name":{"type":"string"},"account_type":{"type":"string"}}}`)

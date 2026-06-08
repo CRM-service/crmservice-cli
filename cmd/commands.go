@@ -641,6 +641,20 @@ func createCmd() *cobra.Command {
 				return fmt.Errorf("no fields provided; use --field or pass JSON via stdin")
 			}
 
+			url, err := getURLFromFlagOrEnv(cmd)
+			if err != nil {
+				return err
+			}
+			token, err := getTokenFromFlagEnvConfig(cmd)
+			if err != nil {
+				return err
+			}
+			if token != "" {
+				if err := validateBodyInputAgainstModule(module, input, url, token, verbose); err != nil {
+					return output.ErrorResponse(err)
+				}
+			}
+
 			if dryRun {
 				body, err := singleRecordRequestBody(module, "", "create", input)
 				if err != nil {
@@ -649,12 +663,7 @@ func createCmd() *cobra.Command {
 				return outputDryRunRequest("create", module, "", body, outputFormat)
 			}
 
-			token, err := getRequiredTokenFromFlagEnvConfig(cmd)
-			if err != nil {
-				return err
-			}
-
-			url, err := getURLFromFlagOrEnv(cmd)
+			token, err = getRequiredTokenFromFlagEnvConfig(cmd)
 			if err != nil {
 				return err
 			}
@@ -731,6 +740,20 @@ func updateCmd() *cobra.Command {
 				return fmt.Errorf("no fields provided; use --field or pass JSON via stdin")
 			}
 
+			url, err := getURLFromFlagOrEnv(cmd)
+			if err != nil {
+				return err
+			}
+			token, err := getTokenFromFlagEnvConfig(cmd)
+			if err != nil {
+				return err
+			}
+			if token != "" {
+				if err := validateBodyInputAgainstModule(module, input, url, token, verbose); err != nil {
+					return output.ErrorResponse(err)
+				}
+			}
+
 			if dryRun {
 				body, err := singleRecordRequestBody(module, id, "update", input)
 				if err != nil {
@@ -739,12 +762,7 @@ func updateCmd() *cobra.Command {
 				return outputDryRunRequest("update", module, id, body, outputFormat)
 			}
 
-			token, err := getRequiredTokenFromFlagEnvConfig(cmd)
-			if err != nil {
-				return err
-			}
-
-			url, err := getURLFromFlagOrEnv(cmd)
+			token, err = getRequiredTokenFromFlagEnvConfig(cmd)
 			if err != nil {
 				return err
 			}
