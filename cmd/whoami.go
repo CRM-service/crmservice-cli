@@ -103,7 +103,7 @@ func fetchCurrentUser(ctx context.Context, url, token string) (map[string]interf
 	}
 
 	user := map[string]interface{}{
-		"crm_url": strings.TrimSuffix(url, "/"),
+		"crm_url": whoamiCRMURL(url),
 	}
 
 	if data, ok := resp.Data.(map[string]interface{}); ok {
@@ -134,11 +134,18 @@ func unauthenticatedWhoami(url, reason string) map[string]interface{} {
 	}
 
 	return map[string]interface{}{
-		"crm_url":       strings.TrimSuffix(url, "/"),
+		"crm_url":       whoamiCRMURL(url),
 		"authenticated": false,
 		"error":         reason,
 		"message":       message,
 	}
+}
+
+func whoamiCRMURL(url string) interface{} {
+	if url == "" {
+		return nil
+	}
+	return strings.TrimSuffix(url, "/")
 }
 
 func isUnauthorizedError(err error) bool {

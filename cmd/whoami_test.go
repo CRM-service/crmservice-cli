@@ -191,8 +191,13 @@ func TestWhoamiCmdMissingCredentialsExitError(t *testing.T) {
 	cmd.SilenceUsage = true
 	cmd.SetArgs([]string{"-o", "json"})
 
-	if err := cmd.Execute(); err == nil {
-		t.Fatal("Execute() error = nil, expected missing credentials error")
+	stdout := captureStdout(t, func() {
+		if err := cmd.Execute(); err == nil {
+			t.Fatal("Execute() error = nil, expected missing credentials error")
+		}
+	})
+	if !strings.Contains(stdout, `"crm_url": null`) {
+		t.Errorf("expected crm_url null in stdout, got: %s", stdout)
 	}
 }
 
@@ -208,12 +213,23 @@ func TestUnauthenticatedWhoamiReasons(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.reason, func(t *testing.T) {
-			data := unauthenticatedWhoami("https://crm.example.com/api/v1", tc.reason)
+			url := "https://crm.example.com/api/v1"
+			if tc.reason == "missing_url" {
+				url = ""
+			}
+			data := unauthenticatedWhoami(url, tc.reason)
 			if data["error"] != tc.reason {
 				t.Errorf("error = %q, expected %q", data["error"], tc.reason)
 			}
 			if data["message"] != tc.message {
 				t.Errorf("message = %q, expected %q", data["message"], tc.message)
+			}
+			if tc.reason == "missing_url" {
+				if data["crm_url"] != nil {
+					t.Errorf("crm_url = %v, expected nil", data["crm_url"])
+				}
+			} else if data["crm_url"] != url {
+				t.Errorf("crm_url = %v, expected %q", data["crm_url"], url)
 			}
 		})
 	}
