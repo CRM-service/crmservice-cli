@@ -169,9 +169,10 @@ func getBodyInput(cmd *cobra.Command, id, operation string) (*bodyInput, error) 
 	data := make(map[string]interface{})
 	for _, f := range fields {
 		parts := strings.SplitN(f, "=", 2)
-		if len(parts) == 2 {
-			data[parts[0]] = parts[1]
+		if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" {
+			return nil, fmt.Errorf("invalid --field %q: expected name=value", f)
 		}
+		data[strings.TrimSpace(parts[0])] = parts[1]
 	}
 	return &bodyInput{body: data}, nil
 }
