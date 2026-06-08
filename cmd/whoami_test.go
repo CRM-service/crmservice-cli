@@ -138,6 +138,64 @@ func TestWhoamiCmdAPIErrorUsesStructuredOutput(t *testing.T) {
 	}
 }
 
+func TestWhoamiCmdInvalidTokenExitError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/vnd.api+json")
+		w.WriteHeader(http.StatusUnauthorized)
+		if _, err := w.Write([]byte(`{"errors":[{"detail":"unauthorized"}]}`)); err != nil {
+			t.Errorf("Write() returned error: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	oldCfg := cfg
+	cfg = &config.Config{
+		API:  config.APIConfig{URL: server.URL + "/api/v1", Timeout: 5},
+		Auth: config.AuthConfig{Token: "bad-token"},
+	}
+	t.Cleanup(func() { cfg = oldCfg })
+
+	cmd := whoamiCmd()
+	cmd.SilenceErrors = true
+	cmd.SilenceUsage = true
+	cmd.SetArgs([]string{"-o", "json"})
+
+	stdout := captureStdout(t, func() {
+		stderr := captureStderr(t, func() {
+			if err := cmd.Execute(); err == nil {
+				t.Fatal("Execute() error = nil, expected invalid token error")
+			}
+		})
+		if stderr != "" {
+			t.Fatalf("stderr = %q, expected no duplicate error output", stderr)
+		}
+	})
+
+	if !strings.Contains(stdout, `"error": "invalid_token"`) {
+		t.Errorf("expected invalid_token in stdout, got: %s", stdout)
+	}
+	if !strings.Contains(stdout, `"authenticated": false`) {
+		t.Errorf("expected authenticated=false in stdout, got: %s", stdout)
+	}
+}
+
+func TestWhoamiCmdMissingCredentialsExitError(t *testing.T) {
+	oldCfg := cfg
+	cfg = nil
+	t.Setenv("CRMSERVICE_API_URL", "")
+	t.Setenv("CRMSERVICE_AUTH_TOKEN", "")
+	t.Cleanup(func() { cfg = oldCfg })
+
+	cmd := whoamiCmd()
+	cmd.SilenceErrors = true
+	cmd.SilenceUsage = true
+	cmd.SetArgs([]string{"-o", "json"})
+
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("Execute() error = nil, expected missing credentials error")
+	}
+}
+
 func TestUnauthenticatedWhoamiReasons(t *testing.T) {
 	testCases := []struct {
 		reason  string
