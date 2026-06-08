@@ -9,7 +9,9 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"crmservice/internal/api"
 	"crmservice/internal/config"
@@ -252,6 +254,84 @@ func TestOutputBulkSummaryJSONL(t *testing.T) {
 	})
 	if bytes.Count([]byte(out), []byte("\n")) != 1 {
 		t.Errorf("jsonl summary should be one line, got: %q", out)
+	}
+}
+
+func TestProcessBulkRecordsUsesConcurrency(t *testing.T) {
+	var mu sync.Mutex
+	inFlight := 0
+	peak := 0
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		inFlight++
+		if inFlight > peak {
+			peak = inFlight
+		}
+		mu.Unlock()
+
+		time.Sleep(20 * time.Millisecond)
+
+		mu.Lock()
+		inFlight--
+		mu.Unlock()
+
+		w.Header().Set("Content-Type", "application/vnd.api+json")
+		w.WriteHeader(http.StatusCreated)
+		if _, err := w.Write([]byte(`{"data":{"id":"new-id","type":"accounts","attributes":{"name":"Acme"}}}`)); err != nil {
+			t.Errorf("Write() returned error: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "token")
+	records := []bulkRecord{
+		{"name": "One"},
+		{"name": "Two"},
+		{"name": "Three"},
+		{"name": "Four"},
+	}
+
+	_, summary, err := processBulkRecords(context.Background(), client, "accounts", "create", records, bulkOptions{Concurrency: 2})
+	if err != nil {
+		t.Fatalf("processBulkRecords() returned error: %v", err)
+	}
+	if summary.Succeeded != 4 {
+		t.Fatalf("summary.Succeeded = %d, want 4", summary.Succeeded)
+	}
+	if peak < 2 {
+		t.Fatalf("peak concurrency = %d, want >= 2", peak)
+	}
+}
+
+func TestProcessBulkRecordsConcurrencyStopsOnError(t *testing.T) {
+	requests := 0
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		w.WriteHeader(http.StatusBadRequest)
+		if _, err := w.Write([]byte(`{"errors":[{"detail":"bad request"}]}`)); err != nil {
+			t.Errorf("Write() returned error: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "token")
+	records := []bulkRecord{
+		{"name": "One"},
+		{"name": "Two"},
+		{"name": "Three"},
+	}
+
+	_, summary, err := processBulkRecords(context.Background(), client, "accounts", "create", records, bulkOptions{Concurrency: 2})
+	if err == nil {
+		t.Fatal("processBulkRecords() error = nil, expected error")
+	}
+	if summary.Failed < 1 {
+		t.Fatalf("summary.Failed = %d, want >= 1", summary.Failed)
+	}
+	if requests >= len(records) {
+		t.Fatalf("requests = %d, want fewer than %d without --continue-on-error", requests, len(records))
 	}
 }
 
