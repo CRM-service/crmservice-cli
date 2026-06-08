@@ -862,6 +862,21 @@ func TestErrorResponse(t *testing.T) {
 	})
 }
 
+func TestGetBodyInputRejectsInvalidFieldFlag(t *testing.T) {
+	cmd := createCmd()
+	if err := cmd.Flags().Set("field", "name"); err != nil {
+		t.Fatalf("Set(field) error: %v", err)
+	}
+
+	_, err := getBodyInput(cmd, "", "create")
+	if err == nil {
+		t.Fatal("getBodyInput() error = nil, expected invalid field error")
+	}
+	if !strings.Contains(err.Error(), "invalid --field") {
+		t.Fatalf("getBodyInput() error = %v, expected invalid --field", err)
+	}
+}
+
 func TestReadStdinBodyInputAcceptsFlatCreate(t *testing.T) {
 	stdin := pipeWithContent(t, `{"id":"source-id","name":"Test Corp","account_type":"Customer"}`)
 
