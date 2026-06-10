@@ -102,67 +102,17 @@ func fetchAllListPages(
 	full bool,
 ) (*listAllResult, error) {
 	result := &listAllResult{}
-	page := 1
-
-	for {
-		if verbose >= 1 {
-			fmt.Fprintf(os.Stderr, "[PAGE] Fetching page %d (page-size %d)\n", page, pageSize)
+	iterateResult, err := iterateListAllPages(ctx, client, module, baseOpts, pageSize, maxResults, verbose, func(page listAllPage) error {
+		result.data = append(result.data, page.Data...)
+		if full && page.Included != nil {
+			result.included = appendSlices(result.included, page.Included)
 		}
-
-		opts := cloneListOptions(baseOpts)
-		opts.PageSize = pageSize
-		opts.SetPage(page)
-		opts.Offset = 0
-
-		resp, err := client.List(ctx, module, opts)
-		if err != nil {
-			return nil, err
-		}
-
-		pageData := toInterfaceSlice(resp.Data)
-		if len(pageData) == 0 {
-			break
-		}
-
-		if maxResults > 0 {
-			remaining := maxResults - len(result.data)
-			if remaining <= 0 {
-				result.truncated = true
-				break
-			}
-			if len(pageData) > remaining {
-				pageData = pageData[:remaining]
-				result.truncated = true
-			}
-		}
-
-		result.data = append(result.data, pageData...)
-
-		if full && resp.Included != nil {
-			result.included = appendSlices(result.included, resp.Included)
-		}
-
-		if result.truncated {
-			break
-		}
-		if maxResults > 0 && len(result.data) >= maxResults {
-			break
-		}
-		if len(pageData) < pageSize {
-			break
-		}
-
-		page++
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
-
-	if maxResults > 0 && len(result.data) == maxResults && !result.truncated {
-		hasMore, err := hasMoreListRecords(ctx, client, module, baseOpts, maxResults, verbose)
-		if err != nil {
-			return nil, err
-		}
-		result.truncated = hasMore
-	}
-
+	result.truncated = iterateResult.Truncated
 	return result, nil
 }
 
@@ -299,80 +249,25 @@ func runListAllStreamJSONL(
 ) error {
 	streamOpts := output.Options{Format: "jsonl", Fields: outputFields, Full: full}
 	seenIncluded := make(map[string]bool)
-	total := 0
-	truncated := false
-	page := 1
 
-	for {
-		if verbose >= 1 {
-			fmt.Fprintf(os.Stderr, "[PAGE] Fetching page %d (page-size %d)\n", page, pageSize)
-		}
-
-		opts := cloneListOptions(baseOpts)
-		opts.PageSize = pageSize
-		opts.SetPage(page)
-		opts.Offset = 0
-
-		resp, err := apiClient.List(cmd.Context(), module, opts)
-		if err != nil {
-			return output.ErrorResponse(err)
-		}
-
-		pageData := toInterfaceSlice(resp.Data)
-		if len(pageData) == 0 {
-			break
-		}
-
-		if maxResults > 0 {
-			remaining := maxResults - total
-			if remaining <= 0 {
-				truncated = true
-				break
-			}
-			if len(pageData) > remaining {
-				pageData = pageData[:remaining]
-				truncated = true
-			}
-		}
-
-		if err := output.StreamJSONLRecords(pageData, streamOpts); err != nil {
+	iterateResult, err := iterateListAllPages(cmd.Context(), apiClient, module, baseOpts, pageSize, maxResults, verbose, func(page listAllPage) error {
+		if err := output.StreamJSONLRecords(page.Data, streamOpts); err != nil {
 			return err
 		}
-		total += len(pageData)
-
-		if full && resp.Included != nil {
-			if err := streamNewIncludedResources(resp.Included, seenIncluded, streamOpts); err != nil {
-				return err
-			}
+		if full && page.Included != nil {
+			return streamNewIncludedResources(page.Included, seenIncluded, streamOpts)
 		}
-
-		if truncated {
-			break
-		}
-		if maxResults > 0 && total >= maxResults {
-			break
-		}
-		if len(pageData) < pageSize {
-			break
-		}
-
-		page++
+		return nil
+	})
+	if err != nil {
+		return output.ErrorResponse(err)
 	}
 
-	if maxResults > 0 && total == maxResults && !truncated {
-		hasMore, err := hasMoreListRecords(cmd.Context(), apiClient, module, baseOpts, maxResults, verbose)
-		if err != nil {
-			return output.ErrorResponse(err)
-		}
-		truncated = hasMore
-	}
-
-	if total == 0 {
+	if iterateResult.Total == 0 {
 		fmt.Println("No data found")
 	}
-
-	if truncated {
-		return output.TruncationStatus(outputFormat, total, maxResults)
+	if iterateResult.Truncated {
+		return output.TruncationStatus(outputFormat, iterateResult.Total, maxResults)
 	}
 	return nil
 }
@@ -392,80 +287,25 @@ func runListAllStreamCSV(
 	streamOpts := output.Options{Format: "csv", Fields: outputFields, Full: full}
 	writer := output.NewCSVStreamWriter()
 	seenIncluded := make(map[string]bool)
-	total := 0
-	truncated := false
-	page := 1
 
-	for {
-		if verbose >= 1 {
-			fmt.Fprintf(os.Stderr, "[PAGE] Fetching page %d (page-size %d)\n", page, pageSize)
-		}
-
-		opts := cloneListOptions(baseOpts)
-		opts.PageSize = pageSize
-		opts.SetPage(page)
-		opts.Offset = 0
-
-		resp, err := apiClient.List(cmd.Context(), module, opts)
-		if err != nil {
-			return output.ErrorResponse(err)
-		}
-
-		pageData := toInterfaceSlice(resp.Data)
-		if len(pageData) == 0 {
-			break
-		}
-
-		if maxResults > 0 {
-			remaining := maxResults - total
-			if remaining <= 0 {
-				truncated = true
-				break
-			}
-			if len(pageData) > remaining {
-				pageData = pageData[:remaining]
-				truncated = true
-			}
-		}
-
-		if err := writer.WritePage(pageData, streamOpts); err != nil {
+	iterateResult, err := iterateListAllPages(cmd.Context(), apiClient, module, baseOpts, pageSize, maxResults, verbose, func(page listAllPage) error {
+		if err := writer.WritePage(page.Data, streamOpts); err != nil {
 			return err
 		}
-		total += len(pageData)
-
-		if full && resp.Included != nil {
-			if err := streamNewIncludedResourcesCSV(resp.Included, seenIncluded, writer, streamOpts); err != nil {
-				return err
-			}
+		if full && page.Included != nil {
+			return streamNewIncludedResourcesCSV(page.Included, seenIncluded, writer, streamOpts)
 		}
-
-		if truncated {
-			break
-		}
-		if maxResults > 0 && total >= maxResults {
-			break
-		}
-		if len(pageData) < pageSize {
-			break
-		}
-
-		page++
+		return nil
+	})
+	if err != nil {
+		return output.ErrorResponse(err)
 	}
 
-	if maxResults > 0 && total == maxResults && !truncated {
-		hasMore, err := hasMoreListRecords(cmd.Context(), apiClient, module, baseOpts, maxResults, verbose)
-		if err != nil {
-			return output.ErrorResponse(err)
-		}
-		truncated = hasMore
-	}
-
-	if total == 0 {
+	if iterateResult.Total == 0 {
 		fmt.Println("No data found")
 	}
-
-	if truncated {
-		return output.TruncationStatus(outputFormat, total, maxResults)
+	if iterateResult.Truncated {
+		return output.TruncationStatus(outputFormat, iterateResult.Total, maxResults)
 	}
 	return nil
 }
