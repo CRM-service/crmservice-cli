@@ -206,7 +206,8 @@ func runWriteCommand(cmd *cobra.Command, module, id, operation string) error {
 	apiClient := newAPIClient(url, token, common.Verbose)
 
 	var resp *api.SingleResponse
-	if input.raw {
+	switch {
+	case input.raw:
 		resp = &api.SingleResponse{}
 		method := http.MethodPost
 		path := "/" + module
@@ -215,9 +216,9 @@ func runWriteCommand(cmd *cobra.Command, module, id, operation string) error {
 			path = fmt.Sprintf("/%s/%s", module, id)
 		}
 		err = apiClient.Do(cmd.Context(), method, path, input.body, resp)
-	} else if operation == "create" {
+	case operation == "create":
 		resp, err = apiClient.Create(cmd.Context(), module, input.body)
-	} else {
+	default:
 		resp, err = apiClient.Update(cmd.Context(), module, id, input.body)
 	}
 	if err != nil {

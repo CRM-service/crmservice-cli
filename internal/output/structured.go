@@ -12,10 +12,10 @@ import (
 
 // StructuredOptions configures map-based CLI output.
 type StructuredOptions struct {
-	Columns       []string
-	ExtraColumns  []string
-	OmitEmpty     bool
-	Destination   io.Writer
+	Columns      []string
+	ExtraColumns []string
+	OmitEmpty    bool
+	Destination  io.Writer
 }
 
 func structuredWriter(opts StructuredOptions) io.Writer {

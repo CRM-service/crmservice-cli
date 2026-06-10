@@ -215,11 +215,7 @@ func parseBulkJSONArray(body []byte) ([]map[string]interface{}, error) {
 	if err := ensureNoExtraJSON(decoder); err != nil {
 		return nil, err
 	}
-	records := make([]map[string]interface{}, 0, len(raw))
-	for _, item := range raw {
-		records = append(records, item)
-	}
-	return records, nil
+	return append([]map[string]interface{}(nil), raw...), nil
 }
 
 func parseBulkJSONObject(body []byte) (map[string]interface{}, error) {

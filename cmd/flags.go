@@ -1,10 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
-	"crmservice/internal/output"
-
 	"github.com/spf13/cobra"
 )
 
@@ -66,18 +62,4 @@ func readCommonFlags(cmd *cobra.Command) (CommonFlagValues, error) {
 	}
 
 	return values, nil
-}
-
-func readVerboseFlag(cmd *cobra.Command) (int, error) {
-	if cmd.Flags().Lookup("verbose") == nil {
-		return 0, nil
-	}
-	return cmd.Flags().GetInt("verbose")
-}
-
-func validateOutputFormatFlag(format string) error {
-	if format == "" {
-		return fmt.Errorf("output format is required")
-	}
-	return output.ValidateOutputFormat(format)
 }

@@ -7,11 +7,18 @@ import (
 	"testing"
 )
 
+func writeSchemaTestResponse(t *testing.T, w http.ResponseWriter, body string) {
+	t.Helper()
+	if _, err := w.Write([]byte(body)); err != nil {
+		t.Errorf("Write() returned error: %v", err)
+	}
+}
+
 func TestValidateModuleAttributesRejectsUnknownField(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"attributes":{"name":{"type":"string"}}}`))
+		writeSchemaTestResponse(t, w, `{"attributes":{"name":{"type":"string"}}}`)
 	}))
 	defer server.Close()
 
@@ -50,7 +57,7 @@ func TestValidateFilterFieldsRejectsUnknownBareField(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"attributes":{"name":{"type":"string"},"account_type":{"type":"string"}}}`))
+		writeSchemaTestResponse(t, w, `{"attributes":{"name":{"type":"string"},"account_type":{"type":"string"}}}`)
 	}))
 	defer server.Close()
 
@@ -65,7 +72,7 @@ func TestValidateFilterFieldsRejectsUnknownField(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"attributes":{"name":{"type":"string"},"account_type":{"type":"string"}}}`))
+		writeSchemaTestResponse(t, w, `{"attributes":{"name":{"type":"string"},"account_type":{"type":"string"}}}`)
 	}))
 	defer server.Close()
 
@@ -80,7 +87,7 @@ func TestValidateFilterFieldsAcceptsKnownField(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"attributes":{"name":{"type":"string"},"account_type":{"type":"string"}}}`))
+		writeSchemaTestResponse(t, w, `{"attributes":{"name":{"type":"string"},"account_type":{"type":"string"}}}`)
 	}))
 	defer server.Close()
 
@@ -98,9 +105,9 @@ func TestValidateFilterFieldsValidatesRelatedField(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		switch r.URL.Path {
 		case "/api/v1/schema/contacts":
-			_, _ = w.Write([]byte(`{"attributes":{"account_id":{"type":"relation","relationModule":"accounts"}}}`))
+			writeSchemaTestResponse(t, w, `{"attributes":{"account_id":{"type":"relation","relationModule":"accounts"}}}`)
 		case "/api/v1/schema/accounts":
-			_, _ = w.Write([]byte(`{"attributes":{"account_type":{"type":"string"}}}`))
+			writeSchemaTestResponse(t, w, `{"attributes":{"account_type":{"type":"string"}}}`)
 		default:
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}
@@ -124,9 +131,9 @@ func TestValidateFilterFieldsValidatesRelationTypeField(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		switch r.URL.Path {
 		case "/api/v1/schema/contacts":
-			_, _ = w.Write([]byte(`{"attributes":{"account_id":{"type":"relation","relationType":"accounts","relationName":"account"}}}`))
+			writeSchemaTestResponse(t, w, `{"attributes":{"account_id":{"type":"relation","relationType":"accounts","relationName":"account"}}}`)
 		case "/api/v1/schema/accounts":
-			_, _ = w.Write([]byte(`{"attributes":{"account_type":{"type":"string"}}}`))
+			writeSchemaTestResponse(t, w, `{"attributes":{"account_type":{"type":"string"}}}`)
 		default:
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}
@@ -150,9 +157,9 @@ func TestValidateFilterFieldsValidatesDeclaredRelation(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		switch r.URL.Path {
 		case "/api/v1/schema/accounts":
-			_, _ = w.Write([]byte(`{"attributes":{"name":{"type":"string"}},"relations":{"activities":{"type":"hasMany","class":"activities"}}}`))
+			writeSchemaTestResponse(t, w, `{"attributes":{"name":{"type":"string"}},"relations":{"activities":{"type":"hasMany","class":"activities"}}}`)
 		case "/api/v1/schema/activities":
-			_, _ = w.Write([]byte(`{"attributes":{"subject":{"type":"string"}}}`))
+			writeSchemaTestResponse(t, w, `{"attributes":{"subject":{"type":"string"}}}`)
 		default:
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}
