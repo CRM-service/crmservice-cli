@@ -146,7 +146,7 @@ func fieldsCmd() *cobra.Command {
 				Data: data,
 			}, output.Options{
 				Format:  common.OutputFormat,
-				Columns: []string{"name", "type", "size", "scale", "nullable", "defaultValue", "label"},
+				Columns: []string{"name", "type", "size", "scale", "nullable", "defaultValue", "label", "relationModule", "primary"},
 				Full:    common.Full,
 			})
 		},

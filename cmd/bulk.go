@@ -19,8 +19,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type bulkRecord map[string]interface{}
-
 type bulkOptions struct {
 	ContinueOnError bool
 	DryRun          bool
@@ -175,7 +173,7 @@ func getBulkOptions(cmd *cobra.Command) (bulkOptions, error) {
 	return bulkOptions{ContinueOnError: continueOnError, DryRun: dryRun, Concurrency: concurrency, SkipEmpty: skipEmpty, Summary: summary, OutputFormat: outputFormat, Full: full, Verbose: verbose}, nil
 }
 
-func readBulkRecords(reader io.Reader) ([]bulkRecord, error) {
+func readBulkRecords(reader io.Reader) ([]map[string]interface{}, error) {
 	if reader == nil {
 		reader = os.Stdin
 	}
@@ -202,12 +200,12 @@ func readBulkRecords(reader io.Reader) ([]bulkRecord, error) {
 		return records, nil
 	}
 	if record, err := parseBulkJSONObject(body); err == nil {
-		return []bulkRecord{record}, nil
+		return []map[string]interface{}{record}, nil
 	}
 	return parseBulkJSONL(body)
 }
 
-func parseBulkJSONArray(body []byte) ([]bulkRecord, error) {
+func parseBulkJSONArray(body []byte) ([]map[string]interface{}, error) {
 	var raw []map[string]interface{}
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.UseNumber()
@@ -217,14 +215,14 @@ func parseBulkJSONArray(body []byte) ([]bulkRecord, error) {
 	if err := ensureNoExtraJSON(decoder); err != nil {
 		return nil, err
 	}
-	records := make([]bulkRecord, 0, len(raw))
+	records := make([]map[string]interface{}, 0, len(raw))
 	for _, item := range raw {
-		records = append(records, bulkRecord(item))
+		records = append(records, item)
 	}
 	return records, nil
 }
 
-func parseBulkJSONObject(body []byte) (bulkRecord, error) {
+func parseBulkJSONObject(body []byte) (map[string]interface{}, error) {
 	var raw map[string]interface{}
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.UseNumber()
@@ -234,7 +232,7 @@ func parseBulkJSONObject(body []byte) (bulkRecord, error) {
 	if err := ensureNoExtraJSON(decoder); err != nil {
 		return nil, err
 	}
-	return bulkRecord(raw), nil
+	return raw, nil
 }
 
 func ensureNoExtraJSON(decoder *json.Decoder) error {
@@ -247,10 +245,10 @@ func ensureNoExtraJSON(decoder *json.Decoder) error {
 	return fmt.Errorf("multiple JSON values")
 }
 
-func parseBulkJSONL(body []byte) ([]bulkRecord, error) {
+func parseBulkJSONL(body []byte) ([]map[string]interface{}, error) {
 	scanner := bufio.NewScanner(bytes.NewReader(body))
 	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
-	records := []bulkRecord{}
+	records := []map[string]interface{}{}
 	lineNo := 0
 	for scanner.Scan() {
 		lineNo++
@@ -264,7 +262,7 @@ func parseBulkJSONL(body []byte) ([]bulkRecord, error) {
 		if err := decoder.Decode(&record); err != nil {
 			return nil, fmt.Errorf("invalid JSONL on line %d: %w", lineNo, err)
 		}
-		records = append(records, bulkRecord(record))
+		records = append(records, record)
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, err
@@ -272,7 +270,7 @@ func parseBulkJSONL(body []byte) ([]bulkRecord, error) {
 	return records, nil
 }
 
-func processBulkRecords(ctx context.Context, client *api.Client, module, operation string, records []bulkRecord, opts bulkOptions) ([]bulkResult, bulkSummary, error) {
+func processBulkRecords(ctx context.Context, client *api.Client, module, operation string, records []map[string]interface{}, opts bulkOptions) ([]bulkResult, bulkSummary, error) {
 	summary := bulkSummary{Operation: operation, Module: module, Total: len(records), DryRun: opts.DryRun}
 	results := make([]bulkResult, len(records))
 
@@ -345,7 +343,7 @@ dispatch:
 	return compactBulkResults(results), summary, firstErr
 }
 
-func processBulkRecord(ctx context.Context, client *api.Client, module, operation string, index int, record bulkRecord, opts bulkOptions) (bulkResult, error) {
+func processBulkRecord(ctx context.Context, client *api.Client, module, operation string, index int, record map[string]interface{}, opts bulkOptions) (bulkResult, error) {
 	result := bulkResult{Index: index, Status: "pending"}
 	body, id, err := bulkRequestBody(module, operation, record)
 	result.ID = id
@@ -383,7 +381,7 @@ func processBulkRecord(ctx context.Context, client *api.Client, module, operatio
 	return result, nil
 }
 
-func bulkRequestBody(module, operation string, record bulkRecord) (map[string]interface{}, string, error) {
+func bulkRequestBody(module, operation string, record map[string]interface{}) (map[string]interface{}, string, error) {
 	return api.BuildWriteBody(module, "", operation, record)
 }
 

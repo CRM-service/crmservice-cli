@@ -37,12 +37,7 @@ func modulesCmd() *cobra.Command {
 
 			client := newAPIClient(url, token, verbose)
 
-			type rawResponse struct {
-				Meta  interface{}            `json:"meta"`
-				Links map[string]interface{} `json:"links"`
-			}
-
-			var raw rawResponse
+			var raw api.DiscoveryResponse
 			if err := client.Do(cmd.Context(), http.MethodGet, "/", nil, &raw); err != nil {
 				return output.ErrorResponse(err)
 			}

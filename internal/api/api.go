@@ -194,6 +194,12 @@ type Links struct {
 	Last  string `json:"last,omitempty"`
 }
 
+// DiscoveryResponse is the JSON:API root document listing module links.
+type DiscoveryResponse struct {
+	Meta  interface{}            `json:"meta,omitempty"`
+	Links map[string]interface{} `json:"links,omitempty"`
+}
+
 type JSONAPIResponse struct {
 	Data     interface{} `json:"data"`
 	Meta     *Meta       `json:"meta,omitempty"`
