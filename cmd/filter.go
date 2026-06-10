@@ -1,19 +1,17 @@
 package cmd
 
 import (
-	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
-	"crmservice/internal/api"
 	"crmservice/internal/output"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
+
+var filterValidateColumns = []string{"valid", "schema_checked", "module", "message"}
 
 var filterOperators = map[string]filterOperatorSpec{
 	"$eq":          {MinArgs: 2, MaxArgs: 2, FieldFirst: true},
@@ -339,45 +337,10 @@ func outputFilterValidateResult(format string, data map[string]interface{}) erro
 }
 
 func outputFilterValidate(format string, data map[string]interface{}) error {
-	switch format {
-	case "table":
-		keys := []string{"valid", "schema_checked", "module", "message"}
-		for _, key := range keys {
-			if value, ok := data[key]; ok && value != nil && value != "" {
-				fmt.Printf("%-20s | %v\n", key, value)
-			}
-		}
-		return nil
-	case "csv":
-		columns := []string{"valid", "schema_checked", "module", "message"}
-		writer := csv.NewWriter(os.Stdout)
-		if err := writer.Write(columns); err != nil {
-			return err
-		}
-		row := make([]string, len(columns))
-		for i, column := range columns {
-			if value, ok := data[column]; ok && value != nil {
-				row[i] = fmt.Sprintf("%v", value)
-			}
-		}
-		if err := writer.Write(row); err != nil {
-			return err
-		}
-		writer.Flush()
-		return writer.Error()
-	case "yaml":
-		encoder := yaml.NewEncoder(os.Stdout)
-		encoder.SetIndent(2)
-		return encoder.Encode(data)
-	case "json":
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		return encoder.Encode(data)
-	case "jsonl":
-		return json.NewEncoder(os.Stdout).Encode(data)
-	default:
-		return output.ItemResponse(&api.SingleResponse{Data: data}, output.Options{Format: format, Full: false})
-	}
+	return output.WriteStructured(format, data, output.StructuredOptions{
+		Columns:   filterValidateColumns,
+		OmitEmpty: true,
+	})
 }
 
 func collectFilterFieldsFromOperator(operator string, node interface{}, fields *[]string) {

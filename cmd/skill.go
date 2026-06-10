@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"encoding/csv"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,8 +9,12 @@ import (
 	"crmservice/skills"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
+
+var skillCheckColumns = []string{
+	"status", "up_to_date", "installed", "files_checked",
+	"path", "bundled_hash", "installed_hash", "message",
+}
 
 func skillCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -135,42 +137,8 @@ func outputSkillCheckResult(format string, data map[string]interface{}) error {
 }
 
 func outputSkillCheck(format string, data map[string]interface{}) error {
-	keys := []string{"status", "up_to_date", "installed", "files_checked", "path", "bundled_hash", "installed_hash", "message"}
-	switch format {
-	case "table":
-		for _, key := range keys {
-			if value, ok := data[key]; ok && value != nil && value != "" {
-				fmt.Printf("%-20s | %v\n", key, value)
-			}
-		}
-		return nil
-	case "csv":
-		writer := csv.NewWriter(os.Stdout)
-		if err := writer.Write(keys); err != nil {
-			return err
-		}
-		row := make([]string, len(keys))
-		for i, column := range keys {
-			if value, ok := data[column]; ok && value != nil {
-				row[i] = fmt.Sprintf("%v", value)
-			}
-		}
-		if err := writer.Write(row); err != nil {
-			return err
-		}
-		writer.Flush()
-		return writer.Error()
-	case "yaml":
-		encoder := yaml.NewEncoder(os.Stdout)
-		encoder.SetIndent(2)
-		return encoder.Encode(data)
-	case "json":
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		return encoder.Encode(data)
-	case "jsonl":
-		return json.NewEncoder(os.Stdout).Encode(data)
-	default:
-		return output.ValidateOutputFormat(format)
-	}
+	return output.WriteStructured(format, data, output.StructuredOptions{
+		Columns:   skillCheckColumns,
+		OmitEmpty: true,
+	})
 }

@@ -7,8 +7,6 @@ import (
 	"os"
 
 	"crmservice/internal/api"
-
-	"gopkg.in/yaml.v3"
 )
 
 var activeFormat = "table"
@@ -61,15 +59,11 @@ func errorPayload(err error) map[string]interface{} {
 func WriteStderr(format string, data interface{}) error {
 	switch format {
 	case "json":
-		encoder := json.NewEncoder(os.Stderr)
-		encoder.SetIndent("", "  ")
-		return encoder.Encode(data)
+		return encodeJSON(os.Stderr, data, true)
 	case "jsonl":
 		return json.NewEncoder(os.Stderr).Encode(data)
 	case "yaml":
-		encoder := yaml.NewEncoder(os.Stderr)
-		encoder.SetIndent(2)
-		return encoder.Encode(data)
+		return encodeYAML(os.Stderr, data)
 	case "csv":
 		return writeStderrCSV(data)
 	default:

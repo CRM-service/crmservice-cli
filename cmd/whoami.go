@@ -2,8 +2,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/csv"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -13,7 +11,6 @@ import (
 	"crmservice/internal/output"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 var whoamiFields = []string{"crm_url", "id", "name", "email", "is_admin", "first_name", "last_name"}
@@ -155,44 +152,5 @@ func outputWhoami(format string, data map[string]interface{}) error {
 	if _, ok := data["error"]; ok {
 		columns = []string{"crm_url", "authenticated", "error", "message"}
 	}
-
-	switch format {
-	case "json":
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		return encoder.Encode(data)
-	case "jsonl":
-		return json.NewEncoder(os.Stdout).Encode(data)
-	case "yaml":
-		encoder := yaml.NewEncoder(os.Stdout)
-		encoder.SetIndent(2)
-		return encoder.Encode(data)
-	case "csv":
-		writer := csv.NewWriter(os.Stdout)
-		if err := writer.Write(columns); err != nil {
-			return err
-		}
-		if err := writer.Write(whoamiRow(data, columns)); err != nil {
-			return err
-		}
-		writer.Flush()
-		return writer.Error()
-	case "table":
-		for _, column := range columns {
-			fmt.Printf("%-20s | %v\n", column, data[column])
-		}
-		return nil
-	default:
-		return output.ValidateOutputFormat(format)
-	}
-}
-
-func whoamiRow(data map[string]interface{}, columns []string) []string {
-	row := make([]string, len(columns))
-	for i, column := range columns {
-		if value, ok := data[column]; ok && value != nil {
-			row[i] = fmt.Sprintf("%v", value)
-		}
-	}
-	return row
+	return output.WriteStructured(format, data, output.StructuredOptions{Columns: columns})
 }
