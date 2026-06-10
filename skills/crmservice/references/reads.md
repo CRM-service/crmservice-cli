@@ -60,7 +60,7 @@ crmservice fields accounts --output json
 crmservice fields accounts --full -o json   # full raw backend schema (envelope)
 ```
 
-The default output for `-o json` / `-o jsonl` etc. is a clean array of field objects. Each field includes at minimum `name`, `type`, `label`, `nullable`. Primary key field(s) are marked with `"primary": true`:
+The default output for `-o json` / `-o jsonl` etc. is a clean array of field objects. Each field includes at minimum `name`, `type`, `label`, `nullable`. Relation (FK) fields also include `relationModule` with the target module name. Primary key field(s) are marked with `"primary": true`:
 
 ```bash
 crmservice fields accounts -o json | jq '.[] | select(.primary) | .name'
