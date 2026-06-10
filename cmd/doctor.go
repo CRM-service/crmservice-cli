@@ -50,7 +50,7 @@ func doctorCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
+	addCommonFlags(cmd, CommonFlagSet{Output: true})
 
 	return cmd
 }

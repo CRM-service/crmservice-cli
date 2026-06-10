@@ -82,9 +82,7 @@ func addBulkFlags(cmd *cobra.Command) {
 	cmd.Flags().Int("concurrency", 1, "Number of concurrent API requests")
 	cmd.Flags().Bool("skip-empty", false, "Skip empty records instead of failing")
 	cmd.Flags().Bool("summary", false, "Output only an operation summary")
-	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
-	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
-	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
+	addCommonFlags(cmd, CommonFlagSet{Output: true, Verbose: true, Full: true})
 }
 
 func runBulkCommand(cmd *cobra.Command, module, operation string) error {

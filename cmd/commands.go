@@ -578,9 +578,7 @@ func getCmd() *cobra.Command {
 	}
 
 	cmd.Flags().String("fields", "", "Comma-separated field names to include (from 'attributes' branch)")
-	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
-	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
-	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
+	addCommonFlags(cmd, CommonFlagSet{Output: true, Verbose: true, Full: true})
 
 	return cmd
 }
@@ -669,10 +667,8 @@ func createCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringArray("field", []string{}, "Field values to set")
-	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
 	cmd.Flags().Bool("dry-run", false, "Build the request body without sending it to the API")
-	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
-	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
+	addCommonFlags(cmd, CommonFlagSet{Output: true, Verbose: true, Full: true})
 
 	return cmd
 }
@@ -762,10 +758,8 @@ func updateCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringArray("field", []string{}, "Field values to update")
-	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
 	cmd.Flags().Bool("dry-run", false, "Build the request body without sending it to the API")
-	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
-	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
+	addCommonFlags(cmd, CommonFlagSet{Output: true, Verbose: true, Full: true})
 
 	return cmd
 }
@@ -809,8 +803,7 @@ func deleteCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
-	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
+	addCommonFlags(cmd, CommonFlagSet{Output: true, Verbose: true})
 
 	return cmd
 }
@@ -905,10 +898,8 @@ func fieldsCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
-	cmd.Flags().Bool("full", false, "Include full schema response under the data key")
+	addCommonFlags(cmd, CommonFlagSet{Output: true, Verbose: true, Full: true})
 	cmd.Flags().Bool("force", false, "Force refresh schema cache")
-	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
 
 	return cmd
 }

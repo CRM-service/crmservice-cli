@@ -87,7 +87,7 @@ func skillInstallCmd() *cobra.Command {
 	}
 
 	cmd.Flags().Bool("check", false, "Check whether the installed skill matches the bundled skill")
-	cmd.Flags().StringP("output", "o", "table", "Output format for --check: table, json, yaml, jsonl, or csv")
+	addCommonFlags(cmd, CommonFlagSet{Output: true})
 	cmd.SilenceErrors = true
 	cmd.SilenceUsage = true
 

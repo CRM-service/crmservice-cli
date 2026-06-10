@@ -154,8 +154,7 @@ func filterCmd() *cobra.Command {
 			return outputFilterValidateResult(outputFormat, filterValidateSuccess(module, filterJSON, true))
 		},
 	}
-	validateCmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
-	validateCmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
+	addCommonFlags(validateCmd, CommonFlagSet{Output: true, Verbose: true})
 	cmd.AddCommand(validateCmd)
 
 	return cmd
