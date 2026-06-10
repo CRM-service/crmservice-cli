@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"crmservice/internal/cache"
+	"crmservice/internal/config"
 	"crmservice/internal/output"
 )
 
@@ -52,18 +53,18 @@ func getSchemaBody(module, url, token string, verbose int, force bool) ([]byte, 
 }
 
 func getSchemaCacheDir(url string) string {
-	cacheDir := ""
-	if cfg != nil {
+	cacheDir := config.DefaultSchemaDir()
+	if cfg != nil && cfg.Cache.SchemaDir != "" {
 		cacheDir = cfg.Cache.SchemaDir
 	}
-	if cacheDir == "" {
-		cacheDir = filepath.Join(os.TempDir(), "crmservice", "schema")
+	canonical, err := config.ResolveAPIURL(url, false)
+	if err != nil || canonical == "" {
+		canonical = strings.TrimSuffix(url, "/")
 	}
-	return filepath.Join(cacheDir, cacheKey(url))
+	return filepath.Join(cacheDir, cacheKey(canonical))
 }
 
 func cacheKey(value string) string {
-	value = strings.TrimSuffix(value, "/")
 	if value == "" {
 		return "default"
 	}

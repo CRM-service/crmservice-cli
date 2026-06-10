@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"crmservice/internal/cache"
+	"crmservice/internal/osutil"
 	"crmservice/internal/output"
 
 	"gopkg.in/yaml.v3"
@@ -92,7 +93,6 @@ func LoadConfig(configFile string) (*Config, error) {
 
 var userConfigDir = os.UserConfigDir
 var userCacheDir = os.UserCacheDir
-var userHomeDir = os.UserHomeDir
 
 func defaultConfigFile() string {
 	configDir, err := userConfigDir()
@@ -177,14 +177,14 @@ func ExpandPaths(config *Config) {
 
 func expandHomePath(path string) string {
 	if path == "~" {
-		home, err := userHomeDir()
+		home, err := osutil.UserHomeDir()
 		if err != nil {
 			return path
 		}
 		return home
 	}
 	if strings.HasPrefix(path, "~/") || strings.HasPrefix(path, `~\`) {
-		home, err := userHomeDir()
+		home, err := osutil.UserHomeDir()
 		if err != nil {
 			return path
 		}
@@ -199,6 +199,11 @@ func getCacheDir() string {
 		return filepath.Join(os.TempDir(), "crmservice", "schema")
 	}
 	return filepath.Join(cacheDir, "crmservice", "schema")
+}
+
+// DefaultSchemaDir returns the default on-disk schema cache directory.
+func DefaultSchemaDir() string {
+	return getCacheDir()
 }
 
 func (c *Config) GetAPIURL() string {
