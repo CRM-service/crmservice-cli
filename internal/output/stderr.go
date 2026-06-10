@@ -78,12 +78,11 @@ func writeStderrTable(data interface{}) error {
 		return nil
 	}
 	keys := []string{"valid", "schema_checked", "module", "message", "error", "status", "returned", "max_results"}
-	for _, key := range keys {
-		if value, ok := record[key]; ok && value != nil && value != "" {
-			fmt.Fprintf(os.Stderr, "%-20s | %v\n", key, value)
-		}
-	}
-	return nil
+	return WriteStructured("table", record, StructuredOptions{
+		Destination: os.Stderr,
+		Columns:     keys,
+		OmitEmpty:   true,
+	})
 }
 
 func StderrError(format string, err error) error {

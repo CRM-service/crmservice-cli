@@ -334,7 +334,7 @@ func TestOutputCSVEmptyRecords(t *testing.T) {
 func TestOutputTableDataNil(t *testing.T) {
 	resp := &api.Response{Data: nil}
 
-	err := outputTable(resp, Options{})
+	err := outputTable(resp, Options{}, TableModeList)
 	if err != nil {
 		t.Errorf("outputTable failed: %v", err)
 	}
@@ -343,7 +343,7 @@ func TestOutputTableDataNil(t *testing.T) {
 func TestOutputTableEmptyData(t *testing.T) {
 	resp := &api.Response{Data: []interface{}{}}
 
-	err := outputTable(resp, Options{})
+	err := outputTable(resp, Options{}, TableModeList)
 	if err != nil {
 		t.Errorf("outputTable failed: %v", err)
 	}
