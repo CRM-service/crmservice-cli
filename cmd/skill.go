@@ -2,9 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
+	"crmservice/internal/osutil"
 	"crmservice/internal/output"
 	"crmservice/skills"
 
@@ -94,10 +94,8 @@ func skillInstallCmd() *cobra.Command {
 	return cmd
 }
 
-var userHomeDir = os.UserHomeDir
-
 func defaultSkillInstallPath() (string, error) {
-	home, err := userHomeDir()
+	home, err := osutil.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
