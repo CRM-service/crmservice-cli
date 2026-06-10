@@ -7,6 +7,7 @@ import (
 
 	"crmservice/internal/api"
 	"crmservice/internal/output"
+	"crmservice/internal/schema"
 
 	"github.com/spf13/cobra"
 )
@@ -130,7 +131,7 @@ func fieldsCmd() *cobra.Command {
 			if rawAttrs, ok := rawResp["attributes"].(map[string]interface{}); ok {
 				attrsObj = rawAttrs
 			}
-			fieldList := fieldListFromSchemaAttributes(attrsObj, primaryKey)
+			fieldList := schema.FieldListFromSchemaAttributes(attrsObj, primaryKey)
 
 			if common.OutputFormat == "table" && len(primaryKey) > 0 {
 				fmt.Printf("Primary Key: %v\n", primaryKey)
@@ -138,7 +139,7 @@ func fieldsCmd() *cobra.Command {
 
 			data := interface{}(fieldList)
 			if common.Full && common.OutputFormat != "table" {
-				data = schemaResponseWithSortedAttributes(rawResp)
+				data = schema.ResponseWithSortedAttributes(rawResp)
 			}
 
 			return output.ListResponse(&api.Response{

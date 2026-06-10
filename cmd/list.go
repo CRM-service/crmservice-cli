@@ -1,10 +1,8 @@
 package cmd
 
 import (
-	"encoding/json"
-	"fmt"
-
 	"crmservice/internal/api"
+	filterpkg "crmservice/internal/filter"
 	"crmservice/internal/output"
 
 	"github.com/spf13/cobra"
@@ -127,12 +125,11 @@ func runListCommand(cmd *cobra.Command, args []string, filterOverride string) er
 	}
 
 	if filter != "" {
-		var filterObj map[string]interface{}
-		if err := json.Unmarshal([]byte(filter), &filterObj); err == nil {
-			opts.SetFilterObj(filterObj)
-		} else {
-			return fmt.Errorf("invalid filter format. Use JSON syntax: filter={$and:[{$eq:[\"field\",\"value\"]}]}. Error: %v", err)
+		filterObj, err := filterpkg.ParseToMap(filter)
+		if err != nil {
+			return err
 		}
+		opts.SetFilterObj(filterObj)
 	}
 
 	if include != "" {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"crmservice/internal/api"
+	"crmservice/internal/filter"
 	"crmservice/internal/output"
 
 	"github.com/spf13/cobra"
@@ -77,8 +78,10 @@ func runCountCommand(cmd *cobra.Command, args []string) error {
 
 	var filterObj map[string]interface{}
 	if filterJSON != "" {
-		if err := json.Unmarshal([]byte(filterJSON), &filterObj); err != nil {
-			return fmt.Errorf("invalid filter format. Use JSON syntax: filter={$and:[{$eq:[\"field\",\"value\"]}]}. Error: %v", err)
+		var err error
+		filterObj, err = filter.ParseToMap(filterJSON)
+		if err != nil {
+			return err
 		}
 	}
 	apiClient := newAPIClient(url, token, verbose)

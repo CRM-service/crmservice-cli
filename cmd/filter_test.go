@@ -6,38 +6,6 @@ import (
 	"testing"
 )
 
-func TestValidateFilterJSON(t *testing.T) {
-	tests := []struct {
-		name    string
-		filter  string
-		wantErr bool
-	}{
-		{name: "eq", filter: `{"$eq":["account_type","Customer"]}`},
-		{name: "bare equality shorthand", filter: `{"account_type":"Customer"}`},
-		{name: "and", filter: `{"$and":[{"$eq":["account_type","Customer"]},{"$cts":["name","Acme"]}]}`},
-		{name: "in", filter: `{"$in":["id",["1","2"]]}`},
-		{name: "between", filter: `{"$between":["created_at","2026-01-01","2026-01-31"]}`},
-		{name: "is null", filter: `{"$is.null":["email"]}`},
-		{name: "invalid json", filter: `{`, wantErr: true},
-		{name: "unknown operator", filter: `{"$unknown":["name","Acme"]}`, wantErr: true},
-		{name: "wrong arity", filter: `{"$eq":["name"]}`, wantErr: true},
-		{name: "in without array", filter: `{"$in":["id","1"]}`, wantErr: true},
-		{name: "empty logical", filter: `{"$and":[]}`, wantErr: true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := validateFilterJSON(tt.filter)
-			if tt.wantErr && err == nil {
-				t.Fatal("validateFilterJSON() error = nil, expected error")
-			}
-			if !tt.wantErr && err != nil {
-				t.Fatalf("validateFilterJSON() returned error: %v", err)
-			}
-		})
-	}
-}
-
 func TestFilterCmd(t *testing.T) {
 	cmd := filterCmd()
 	if cmd.Use != "filter" {
