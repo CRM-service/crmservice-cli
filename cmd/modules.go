@@ -35,9 +35,7 @@ func modulesCmd() *cobra.Command {
 				return err
 			}
 
-			client := api.NewClient(url, token)
-			client.Verbose = verbose
-			client.HTTPClient.Timeout = getTimeoutFromConfig()
+			client := newAPIClient(url, token, verbose)
 
 			type rawResponse struct {
 				Meta  interface{}            `json:"meta"`

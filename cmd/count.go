@@ -81,9 +81,7 @@ func runCountCommand(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("invalid filter format. Use JSON syntax: filter={$and:[{$eq:[\"field\",\"value\"]}]}. Error: %v", err)
 		}
 	}
-	apiClient := api.NewClient(url, token)
-	apiClient.Verbose = verbose
-	apiClient.HTTPClient.Timeout = getTimeoutFromConfig()
+	apiClient := newAPIClient(url, token, verbose)
 
 	count, err := apiClient.Count(cmd.Context(), module, &api.CountOptions{
 		Filter:  filterObj,

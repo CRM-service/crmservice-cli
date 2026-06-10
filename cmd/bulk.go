@@ -109,9 +109,7 @@ func runBulkCommand(cmd *cobra.Command, module, operation string) error {
 		if err != nil {
 			return err
 		}
-		client = api.NewClient(url, token)
-		client.Verbose = opts.Verbose
-		client.HTTPClient.Timeout = getTimeoutFromConfig()
+		client = newAPIClient(url, token, opts.Verbose)
 	}
 
 	results, summary, err := processBulkRecords(cmd.Context(), client, module, operation, records, opts)

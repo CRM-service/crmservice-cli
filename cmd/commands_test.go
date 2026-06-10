@@ -133,15 +133,22 @@ func TestGetCmd(t *testing.T) {
 	})
 }
 
-func TestReadStdinJSONAPIRequest(t *testing.T) {
+func TestReadStdinBodyInputJSONAPIRequest(t *testing.T) {
 	stdin := pipeWithContent(t, `{"data":{"type":"accounts","attributes":{"name":"Test Corp"}}}`)
 
-	body, ok, err := readStdinJSONAPIRequest(stdin)
+	input, ok, err := readStdinBodyInput(stdin, "", "create")
 	if err != nil {
-		t.Fatalf("readStdinJSONAPIRequest() returned error: %v", err)
+		t.Fatalf("readStdinBodyInput() returned error: %v", err)
 	}
 	if !ok {
-		t.Fatal("readStdinJSONAPIRequest() ok = false, expected true")
+		t.Fatal("readStdinBodyInput() ok = false, expected true")
+	}
+	if !input.raw {
+		t.Fatal("readStdinBodyInput() raw = false, expected true")
+	}
+	body, ok := input.body.(map[string]interface{})
+	if !ok {
+		t.Fatalf("input.body = %T, expected object", input.body)
 	}
 	data, ok := body["data"].(map[string]interface{})
 	if !ok {
@@ -152,39 +159,38 @@ func TestReadStdinJSONAPIRequest(t *testing.T) {
 	}
 }
 
-func TestReadStdinJSONAPIRequestRejectsInvalidBody(t *testing.T) {
+func TestReadStdinBodyInputRejectsInvalidJSONAPIBody(t *testing.T) {
 	tests := []struct {
 		name string
 		body string
 	}{
 		{name: "invalid json", body: `{`},
-		{name: "missing data", body: `{"attributes":{"name":"Test Corp"}}`},
 		{name: "data not object", body: `{"data":[]}`},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			stdin := pipeWithContent(t, tt.body)
-			_, ok, err := readStdinJSONAPIRequest(stdin)
+			_, ok, err := readStdinBodyInput(stdin, "", "create")
 			if !ok {
-				t.Fatal("readStdinJSONAPIRequest() ok = false, expected true")
+				t.Fatal("readStdinBodyInput() ok = false, expected true")
 			}
 			if err == nil {
-				t.Fatal("readStdinJSONAPIRequest() error = nil, expected error")
+				t.Fatal("readStdinBodyInput() error = nil, expected error")
 			}
 		})
 	}
 }
 
-func TestReadStdinJSONAPIRequestIgnoresEmptyBody(t *testing.T) {
+func TestReadStdinBodyInputIgnoresEmptyBody(t *testing.T) {
 	stdin := pipeWithContent(t, "\n  \t")
 
-	_, ok, err := readStdinJSONAPIRequest(stdin)
+	_, ok, err := readStdinBodyInput(stdin, "", "create")
 	if err != nil {
-		t.Fatalf("readStdinJSONAPIRequest() returned error: %v", err)
+		t.Fatalf("readStdinBodyInput() returned error: %v", err)
 	}
 	if ok {
-		t.Fatal("readStdinJSONAPIRequest() ok = true, expected false")
+		t.Fatal("readStdinBodyInput() ok = true, expected false")
 	}
 }
 

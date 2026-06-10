@@ -87,8 +87,7 @@ func getOptionalURLFromFlagEnvConfig(cmd *cobra.Command) (string, error) {
 }
 
 func fetchCurrentUser(ctx context.Context, url, token string) (map[string]interface{}, error) {
-	client := api.NewClient(url, token)
-	client.HTTPClient.Timeout = getTimeoutFromConfig()
+	client := newAPIClient(url, token, 0)
 
 	resp := &api.SingleResponse{}
 	err := client.Do(ctx, http.MethodGet, "/user?fields[users]=id,name,email,is_admin,first_name,last_name", nil, resp)
