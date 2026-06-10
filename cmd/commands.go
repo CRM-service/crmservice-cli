@@ -14,23 +14,11 @@ import (
 
 	"crmservice/internal/api"
 	"crmservice/internal/cache"
+	"crmservice/internal/config"
 	"crmservice/internal/output"
 
 	"github.com/spf13/cobra"
 )
-
-func normalizeAPIURL(url string) string {
-	url = strings.TrimSuffix(url, "/")
-	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		url = "https://" + url
-	}
-
-	if !strings.HasSuffix(url, "/api/v1") {
-		url += "/api/v1"
-	}
-
-	return url
-}
 
 func getURLFromFlagOrEnv(cmd *cobra.Command) (string, error) {
 	url := ""
@@ -57,11 +45,7 @@ func getURLFromFlagOrEnv(cmd *cobra.Command) (string, error) {
 	if url == "" && cfg != nil {
 		url = cfg.API.URL
 	}
-	if url == "" {
-		return "", fmt.Errorf("API URL not provided. Set CRMSERVICE_API_URL environment variable, config api.url, or use --url flag")
-	}
-
-	return normalizeAPIURL(url), nil
+	return config.ResolveAPIURL(url, true)
 }
 
 func getTokenFromFlagEnvConfig(cmd *cobra.Command) (string, error) {

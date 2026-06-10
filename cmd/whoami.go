@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 
 	"crmservice/internal/api"
+	"crmservice/internal/config"
 	"crmservice/internal/output"
 
 	"github.com/spf13/cobra"
@@ -86,10 +86,7 @@ func getOptionalURLFromFlagEnvConfig(cmd *cobra.Command) (string, error) {
 	if url == "" && cfg != nil {
 		url = cfg.API.URL
 	}
-	if url == "" {
-		return "", nil
-	}
-	return normalizeAPIURL(url), nil
+	return config.ResolveAPIURL(url, false)
 }
 
 func fetchCurrentUser(ctx context.Context, url, token string) (map[string]interface{}, error) {
@@ -145,7 +142,7 @@ func whoamiCRMURL(url string) interface{} {
 	if url == "" {
 		return nil
 	}
-	return strings.TrimSuffix(url, "/")
+	return config.DisplayAPIURL(url)
 }
 
 func isUnauthorizedError(err error) bool {

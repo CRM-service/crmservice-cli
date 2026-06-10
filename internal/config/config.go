@@ -202,15 +202,9 @@ func getCacheDir() string {
 }
 
 func (c *Config) GetAPIURL() string {
-	return strings.TrimSuffix(c.API.URL, "/")
+	return DisplayAPIURL(c.API.URL)
 }
 
-func (c *Config) GetSanitizedAPIURL() string {
-	url := c.API.URL
-
-	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		url = "https://" + url
-	}
-
-	return strings.TrimSuffix(url, "/")
+func (c *Config) GetSanitizedAPIURL() (string, error) {
+	return ResolveAPIURL(c.API.URL, false)
 }
