@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -383,50 +384,11 @@ func processBulkRecord(ctx context.Context, client *api.Client, module, operatio
 }
 
 func bulkRequestBody(module, operation string, record bulkRecord) (map[string]interface{}, string, error) {
-	if data, ok := record["data"].(map[string]interface{}); ok {
-		id, hasID := normalizeRecordID(data["id"])
-		switch operation {
-		case "create":
-			delete(data, "id")
-		case "update":
-			if !hasID {
-				return nil, "", fmt.Errorf("bulk-update requires id in each record")
-			}
-			data["id"] = id
-		}
-		return map[string]interface{}{"data": data}, id, nil
-	}
-
-	attrs := make(map[string]interface{}, len(record))
-	var id string
-	for key, value := range record {
-		if key == "id" {
-			if normalized, ok := normalizeRecordID(value); ok {
-				id = normalized
-			}
-			continue
-		}
-		attrs[key] = value
-	}
-	if len(attrs) == 0 {
-		return nil, id, fmt.Errorf("empty record")
-	}
-	if operation == "update" && id == "" {
-		return nil, "", fmt.Errorf("bulk-update requires id in each record")
-	}
-
-	data := map[string]interface{}{
-		"type":       module,
-		"attributes": attrs,
-	}
-	if operation == "update" {
-		data["id"] = id
-	}
-	return map[string]interface{}{"data": data}, id, nil
+	return api.BuildWriteBody(module, "", operation, record)
 }
 
 func isEmptyRecordError(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "empty record")
+	return errors.Is(err, api.ErrEmptyRecord)
 }
 
 func applyBulkResultToSummary(summary *bulkSummary, result bulkResult) {

@@ -194,19 +194,16 @@ type Links struct {
 	Last  string `json:"last,omitempty"`
 }
 
-type Response struct {
+type JSONAPIResponse struct {
 	Data     interface{} `json:"data"`
 	Meta     *Meta       `json:"meta,omitempty"`
 	Links    *Links      `json:"links,omitempty"`
 	Included interface{} `json:"included,omitempty"`
 }
 
-type SingleResponse struct {
-	Data     interface{} `json:"data"`
-	Meta     *Meta       `json:"meta,omitempty"`
-	Links    *Links      `json:"links,omitempty"`
-	Included interface{} `json:"included,omitempty"`
-}
+// Response and SingleResponse are aliases for the shared JSON:API envelope type.
+type Response = JSONAPIResponse
+type SingleResponse = JSONAPIResponse
 
 func (c *Client) Do(ctx context.Context, method, path string, body interface{}, result interface{}) error {
 	c.logRequest(method, path)
@@ -325,12 +322,11 @@ func (c *Client) Get(ctx context.Context, module, id string, opts *ListOptions) 
 
 func (c *Client) Create(ctx context.Context, module string, data interface{}) (*SingleResponse, error) {
 	path := "/" + module
-	requestBody := map[string]interface{}{
-		"data": map[string]interface{}{
-			"type":       module,
-			"attributes": data,
-		},
+	attrs, ok := data.(map[string]interface{})
+	if !ok {
+		attrs = map[string]interface{}{}
 	}
+	requestBody := BuildSingleWriteBody(module, "", "create", attrs)
 	var resp SingleResponse
 	err := c.Do(ctx, "POST", path, requestBody, &resp)
 	if err != nil {
@@ -341,13 +337,11 @@ func (c *Client) Create(ctx context.Context, module string, data interface{}) (*
 
 func (c *Client) Update(ctx context.Context, module, id string, data interface{}) (*SingleResponse, error) {
 	path := fmt.Sprintf("/%s/%s", module, id)
-	requestBody := map[string]interface{}{
-		"data": map[string]interface{}{
-			"type":       module,
-			"id":         id,
-			"attributes": data,
-		},
+	attrs, ok := data.(map[string]interface{})
+	if !ok {
+		attrs = map[string]interface{}{}
 	}
+	requestBody := BuildSingleWriteBody(module, id, "update", attrs)
 	var resp SingleResponse
 	err := c.Do(ctx, "PATCH", path, requestBody, &resp)
 	if err != nil {
@@ -359,4 +353,105 @@ func (c *Client) Update(ctx context.Context, module, id string, data interface{}
 func (c *Client) Delete(ctx context.Context, module, id string) error {
 	path := fmt.Sprintf("/%s/%s", module, id)
 	return c.Do(ctx, "DELETE", path, nil, nil)
+}
+
+func (c *Client) PostJSON(ctx context.Context, path string, body interface{}, result interface{}) error {
+	c.logRequest(http.MethodPost, path)
+
+	reqBody, err := prepareRequestBody(body)
+	if err != nil {
+		return err
+	}
+
+	reqURL := c.BaseURL + "/" + strings.TrimPrefix(path, "/")
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, reqBody)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	if c.AuthToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.AuthToken)
+	}
+	if c.Verbose >= 2 {
+		headers := map[string]string{
+			"Content-Type": "application/json",
+			"Accept":       "application/json",
+		}
+		if c.AuthToken != "" {
+			headers["Authorization"] = "Bearer " + c.AuthToken
+		}
+		fmt.Fprintf(os.Stderr, "[REQUEST HEADERS] %v\n", redactHeaders(headers))
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	respBody, err := readResponseBody(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	c.logResponse(resp.StatusCode, respBody)
+
+	if resp.StatusCode >= 400 {
+		return &Error{
+			Status:  resp.StatusCode,
+			Body:    respBody,
+			Message: string(respBody),
+		}
+	}
+
+	if result != nil {
+		if err := json.Unmarshal(respBody, result); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *Client) GetSchema(ctx context.Context, module string) ([]byte, error) {
+	path := "/schema/" + module
+	c.logRequest(http.MethodGet, path)
+
+	reqURL := c.BaseURL + path
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	for key, value := range c.requestHeaders(http.MethodGet) {
+		req.Header.Set(key, value)
+	}
+	if c.AuthToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.AuthToken)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	respBody, err := readResponseBody(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	c.logResponse(resp.StatusCode, respBody)
+
+	if resp.StatusCode >= 400 {
+		return nil, &Error{
+			Status:  resp.StatusCode,
+			Body:    respBody,
+			Message: string(respBody),
+		}
+	}
+
+	return respBody, nil
 }

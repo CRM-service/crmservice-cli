@@ -1,16 +1,14 @@
 package cmd
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"crmservice/internal/api"
 	"crmservice/internal/cache"
 	"crmservice/internal/output"
 )
@@ -74,49 +72,9 @@ func cacheKey(value string) string {
 }
 
 func fetchSchemaBody(module, url, token string, verbose int) ([]byte, error) {
-	client := &http.Client{Timeout: getTimeoutFromConfig()}
-	reqURL := strings.TrimSuffix(url, "/") + "/schema/" + module
-
-	if verbose >= 1 {
-		fmt.Fprintf(os.Stderr, "[REQUEST] GET %s\n", reqURL)
-	}
-
-	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Accept", "application/vnd.api+json")
-	req.Header.Set("Content-Type", "application/vnd.api+json")
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-
-	resp, err := client.Do(req)
+	body, err := newAPIClient(url, token, verbose).GetSchema(context.Background(), module)
 	if err != nil {
 		return nil, output.ErrorResponse(err)
 	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if verbose >= 1 {
-		fmt.Fprintf(os.Stderr, "[RESPONSE] Status: %d\n", resp.StatusCode)
-	}
-	if verbose >= 2 {
-		fmt.Fprintf(os.Stderr, "[RESPONSE BODY]\n%s\n", string(body))
-	}
-
-	if resp.StatusCode >= 400 {
-		return nil, output.ErrorResponse(&api.Error{
-			Status:  resp.StatusCode,
-			Body:    body,
-			Message: string(body),
-		})
-	}
-
 	return body, nil
 }
