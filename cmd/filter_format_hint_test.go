@@ -105,6 +105,19 @@ func TestFilterFormatHintOnAllCommandPaths(t *testing.T) {
 		assertFilterFormatHint(t, stdout)
 	})
 
+	t.Run("preserves underlying JSON error detail", func(t *testing.T) {
+		cmd := countCmd()
+		cmd.SetContext(context.Background())
+		err := runCountCommand(cmd, []string{"accounts", "not-json"})
+		if err == nil {
+			t.Fatal("runCountCommand() error = nil, expected syntax error")
+		}
+		assertFilterFormatHint(t, err.Error())
+		if !strings.Contains(err.Error(), "invalid character 'o'") {
+			t.Fatalf("error = %q, expected underlying JSON detail", err.Error())
+		}
+	})
+
 	t.Run("multiple JSON values", func(t *testing.T) {
 		cmd := countCmd()
 		cmd.SetContext(context.Background())

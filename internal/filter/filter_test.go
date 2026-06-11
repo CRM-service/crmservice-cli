@@ -92,4 +92,20 @@ func TestParseToMapIncludesFormatHint(t *testing.T) {
 	if !strings.Contains(err.Error(), filterFormatHint) {
 		t.Fatalf("ParseToMap() error = %q, expected format hint", err.Error())
 	}
+	if !strings.Contains(err.Error(), "invalid character 'o'") {
+		t.Fatalf("ParseToMap() error = %q, expected underlying JSON detail", err.Error())
+	}
+}
+
+func TestValidateFilterJSONPreservesSemanticErrorDetail(t *testing.T) {
+	err := ValidateFilterJSON(`{"$unknown":["name","x"]}`)
+	if err == nil {
+		t.Fatal("ValidateFilterJSON() error = nil, expected operator error")
+	}
+	if strings.Contains(err.Error(), filterFormatHint) {
+		t.Fatalf("ValidateFilterJSON() error = %q, did not expect format hint", err.Error())
+	}
+	if !strings.Contains(err.Error(), `$unknown`) {
+		t.Fatalf("ValidateFilterJSON() error = %q, expected operator detail", err.Error())
+	}
 }
