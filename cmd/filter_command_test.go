@@ -155,6 +155,93 @@ func TestListCommandFilterValidationOmitsUsage(t *testing.T) {
 	}
 }
 
+func TestRunListCommandRejectsUnknownFieldsFlag(t *testing.T) {
+	listRequests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/accounts") && !strings.Contains(r.URL.Path, "/schema") {
+			listRequests++
+		}
+		writeTestResponse(t, w, `{"attributes":{"name":{"type":"string"}},"data":[]}`)
+	}))
+	defer server.Close()
+
+	setupFilterCommandTestConfig(t)
+	t.Setenv("CRMSERVICE_API_URL", server.URL+"/api/v1")
+
+	cmd := listCmd()
+	cmd.SetContext(context.Background())
+	if err := cmd.Flags().Set("fields", "missing_field"); err != nil {
+		t.Fatalf("Set(fields) error: %v", err)
+	}
+
+	err := runListCommand(cmd, []string{"accounts"}, "")
+	if err == nil {
+		t.Fatal("runListCommand() error = nil, expected fields validation error")
+	}
+	if !strings.Contains(err.Error(), "missing_field") {
+		t.Fatalf("runListCommand() error = %v, expected missing_field", err)
+	}
+	if listRequests != 0 {
+		t.Errorf("list requests = %d, want 0", listRequests)
+	}
+}
+
+func TestRunListCommandRejectsUnknownSortField(t *testing.T) {
+	listRequests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/accounts") && !strings.Contains(r.URL.Path, "/schema") {
+			listRequests++
+		}
+		writeTestResponse(t, w, `{"attributes":{"name":{"type":"string"}},"data":[]}`)
+	}))
+	defer server.Close()
+
+	setupFilterCommandTestConfig(t)
+	t.Setenv("CRMSERVICE_API_URL", server.URL+"/api/v1")
+
+	cmd := listCmd()
+	cmd.SetContext(context.Background())
+	if err := cmd.Flags().Set("sort", "-missing_field"); err != nil {
+		t.Fatalf("Set(sort) error: %v", err)
+	}
+
+	err := runListCommand(cmd, []string{"accounts"}, "")
+	if err == nil {
+		t.Fatal("runListCommand() error = nil, expected sort validation error")
+	}
+	if !strings.Contains(err.Error(), "missing_field") {
+		t.Fatalf("runListCommand() error = %v, expected missing_field", err)
+	}
+	if listRequests != 0 {
+		t.Errorf("list requests = %d, want 0", listRequests)
+	}
+}
+
+func TestGetCommandRejectsUnknownFieldsFlag(t *testing.T) {
+	getRequests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/accounts/123") {
+			getRequests++
+		}
+		writeTestResponse(t, w, `{"attributes":{"name":{"type":"string"}},"data":{}}`)
+	}))
+	defer server.Close()
+
+	setupFilterCommandTestConfig(t)
+	t.Setenv("CRMSERVICE_API_URL", server.URL+"/api/v1")
+
+	cmd := getCmd()
+	cmd.SetContext(context.Background())
+	cmd.SetArgs([]string{"accounts", "123", "--fields", "missing_field", "-o", "json"})
+
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("Execute() error = nil, expected fields validation error")
+	}
+	if getRequests != 0 {
+		t.Errorf("get requests = %d, want 0", getRequests)
+	}
+}
+
 func TestRunCountCommandRejectsInvalidFilterSyntax(t *testing.T) {
 	countRequests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

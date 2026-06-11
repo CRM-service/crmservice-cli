@@ -113,3 +113,15 @@ func splitCommaSeparated(value string) []string {
 	}
 	return items
 }
+
+func sortFieldNames(sort string) []string {
+	items := splitCommaSeparated(sort)
+	names := make([]string, 0, len(items))
+	for _, item := range items {
+		name := strings.TrimPrefix(item, "-")
+		if name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
+}

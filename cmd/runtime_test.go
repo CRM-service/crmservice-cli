@@ -16,6 +16,32 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func TestSortFieldNames(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []string
+	}{
+		{name: "ascending", input: "name,account_type", expected: []string{"name", "account_type"}},
+		{name: "descending prefix", input: "-name,account_type", expected: []string{"name", "account_type"}},
+		{name: "trims spaces", input: "-name, account_type", expected: []string{"name", "account_type"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sortFieldNames(tt.input)
+			if len(got) != len(tt.expected) {
+				t.Fatalf("sortFieldNames(%q) = %v, want %v", tt.input, got, tt.expected)
+			}
+			for i := range got {
+				if got[i] != tt.expected[i] {
+					t.Fatalf("sortFieldNames(%q)[%d] = %q, want %q", tt.input, i, got[i], tt.expected[i])
+				}
+			}
+		})
+	}
+}
+
 func TestSplitCommaSeparated(t *testing.T) {
 	tests := []struct {
 		name     string

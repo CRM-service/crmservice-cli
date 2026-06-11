@@ -101,6 +101,16 @@ func runListCommand(cmd *cobra.Command, args []string, filterOverride string) er
 			return output.ErrorResponse(err)
 		}
 	}
+	if fields != "" {
+		if err := validateModuleFieldsCSV(module, fields, url, token, common.Verbose); err != nil {
+			return output.ErrorResponse(err)
+		}
+	}
+	if sort != "" {
+		if err := validateModuleSortCSV(module, sort, url, token, common.Verbose); err != nil {
+			return output.ErrorResponse(err)
+		}
+	}
 
 	apiClient := newAPIClient(url, token, common.Verbose)
 
@@ -161,9 +171,11 @@ func runListCommand(cmd *cobra.Command, args []string, filterOverride string) er
 
 func getCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get <module> <id>",
-		Short: "Get record by ID",
-		Args:  cobra.ExactArgs(2),
+		Use:           "get <module> <id>",
+		Short:         "Get record by ID",
+		Args:          cobra.ExactArgs(2),
+		SilenceErrors: true,
+		SilenceUsage:  true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			module := args[0]
 			id := args[1]
@@ -181,11 +193,21 @@ func getCmd() *cobra.Command {
 				return err
 			}
 
+			fields, err := cmd.Flags().GetString("fields")
+			if err != nil {
+				return err
+			}
+			if fields != "" {
+				if err := validateModuleFieldsCSV(module, fields, url, token, common.Verbose); err != nil {
+					return output.ErrorResponse(err)
+				}
+			}
+
 			apiClient := newAPIClient(url, token, common.Verbose)
 
 			opts := &api.ListOptions{}
 
-			if fields, err := cmd.Flags().GetString("fields"); err == nil && fields != "" {
+			if fields != "" {
 				opts.SetFields(splitCommaSeparated(fields))
 			}
 
@@ -195,7 +217,7 @@ func getCmd() *cobra.Command {
 			}
 
 			var outputFields []string
-			if fields, err := cmd.Flags().GetString("fields"); err == nil && fields != "" {
+			if fields != "" {
 				outputFields = splitCommaSeparated(fields)
 			}
 

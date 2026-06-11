@@ -58,6 +58,14 @@ func validateModuleAttributes(module string, fields []string, url, token string,
 	return newSchemaValidator(url, token, verbose).ValidateModuleAttributes(module, fields)
 }
 
+func validateModuleFieldsCSV(module, fieldsCSV, url, token string, verbose int) error {
+	return validateModuleAttributes(module, splitCommaSeparated(fieldsCSV), url, token, verbose)
+}
+
+func validateModuleSortCSV(module, sortCSV, url, token string, verbose int) error {
+	return validateModuleAttributes(module, sortFieldNames(sortCSV), url, token, verbose)
+}
+
 func validateBodyInputAgainstModule(module string, input *bodyInput, url, token string, verbose int) error {
 	fields, err := collectBodyAttributeFields(input)
 	if err != nil {
