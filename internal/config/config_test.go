@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"crmservice/internal/osutil"
 )
 
 func TestLoadConfigDefaults(t *testing.T) {
@@ -325,9 +327,9 @@ func setCacheDir(t *testing.T, cacheDir string) {
 func setHomeDir(t *testing.T, home string) {
 	t.Helper()
 
-	oldUserHomeDir := userHomeDir
-	userHomeDir = func() (string, error) { return home, nil }
-	t.Cleanup(func() { userHomeDir = oldUserHomeDir })
+	oldUserHomeDir := osutil.UserHomeDir
+	osutil.UserHomeDir = func() (string, error) { return home, nil }
+	t.Cleanup(func() { osutil.UserHomeDir = oldUserHomeDir })
 }
 
 func clearEnv(t *testing.T) {

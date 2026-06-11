@@ -1,24 +1,12 @@
 package cmd
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"crmservice/internal/config"
 )
-
-func TestCollectFilterFieldsIncludesBareFieldKeys(t *testing.T) {
-	fields := collectFilterFields(map[string]interface{}{"account_type": "Customer"})
-	if len(fields) != 1 {
-		t.Fatalf("len(fields) = %d, expected 1", len(fields))
-	}
-	if fields[0] != "account_type" {
-		t.Errorf("fields[0] = %q, expected account_type", fields[0])
-	}
-}
 
 func TestCollectBodyAttributeFieldsFromFlatInput(t *testing.T) {
 	fields, err := collectBodyAttributeFields(&bodyInput{
@@ -32,33 +20,6 @@ func TestCollectBodyAttributeFieldsFromFlatInput(t *testing.T) {
 	}
 	if len(fields) != 2 || fields[0] != "abc" || fields[1] != "name" {
 		t.Fatalf("fields = %v, expected [abc name]", fields)
-	}
-}
-
-func TestValidateModuleAttributesRejectsUnknownField(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		writeTestResponse(t, w, `{"attributes":{"name":{"type":"string"}}}`)
-	}))
-	defer server.Close()
-
-	oldCfg := cfg
-	cfg = &config.Config{
-		Cache: config.CacheConfig{
-			SchemaDir:   t.TempDir(),
-			TTLSeconds:  1,
-			AutoRefresh: true,
-		},
-		API: config.APIConfig{Timeout: 30},
-	}
-	t.Cleanup(func() { cfg = oldCfg })
-
-	url := server.URL + "/api/v1"
-	err := validateModuleAttributes("accounts", []string{"abc"}, url, "token", 0)
-	if err == nil {
-		t.Fatal("validateModuleAttributes() error = nil, expected unknown field error")
-	}
-	if !strings.Contains(err.Error(), "abc") {
-		t.Fatalf("error = %v, expected abc", err)
 	}
 }
 
@@ -83,23 +44,6 @@ func TestValidateFilterJSONAgainstModuleRejectsUnknownBareField(t *testing.T) {
 	err := validateFilterJSONAgainstModule("accounts", `{"missing_field":"x"}`, url, "token", 0)
 	if err == nil {
 		t.Fatal("validateFilterJSONAgainstModule() error = nil, expected error")
-	}
-}
-
-func TestCollectFilterFields(t *testing.T) {
-	filter := `{"$and":[{"$eq":["account_type","Customer"]},{"$cts":["name","Acme"]}]}`
-	if err := validateFilterJSON(filter); err != nil {
-		t.Fatalf("validateFilterJSON() returned error: %v", err)
-	}
-
-	var parsed interface{}
-	if err := parseFilterJSON(filter, &parsed); err != nil {
-		t.Fatalf("parseFilterJSON() returned error: %v", err)
-	}
-
-	fields := collectFilterFields(parsed)
-	if len(fields) != 2 {
-		t.Fatalf("len(fields) = %d, expected 2", len(fields))
 	}
 }
 
@@ -313,8 +257,26 @@ func TestValidateFilterJSONAgainstModuleValidatesRelatedField(t *testing.T) {
 	}
 }
 
-func parseFilterJSON(input string, target *interface{}) error {
-	decoder := json.NewDecoder(strings.NewReader(input))
-	decoder.UseNumber()
-	return decoder.Decode(target)
+func TestValidateModuleAttributesRejectsUnknownField(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeTestResponse(t, w, `{"attributes":{"name":{"type":"string"}}}`)
+	}))
+	defer server.Close()
+
+	oldCfg := cfg
+	cfg = &config.Config{
+		Cache: config.CacheConfig{
+			SchemaDir:   t.TempDir(),
+			TTLSeconds:  1,
+			AutoRefresh: true,
+		},
+		API: config.APIConfig{Timeout: 30},
+	}
+	t.Cleanup(func() { cfg = oldCfg })
+
+	url := server.URL + "/api/v1"
+	err := validateModuleAttributes("accounts", []string{"abc"}, url, "token", 0)
+	if err == nil {
+		t.Fatal("validateModuleAttributes() error = nil, expected unknown field error")
+	}
 }

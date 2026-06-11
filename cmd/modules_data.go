@@ -1,12 +1,14 @@
 package cmd
 
+import "crmservice/internal/schema"
+
 func modulesDataFromLinks(links map[string]interface{}, full bool) interface{} {
 	if links == nil {
 		return nil
 	}
 
 	if full {
-		keys := sortedMapKeys(links, "self", "meta")
+		keys := schema.SortedMapKeys(links, "self", "meta")
 		linksAsSlice := make([]map[string]interface{}, 0, len(keys))
 		for _, key := range keys {
 			value := links[key]
@@ -27,7 +29,7 @@ func modulesDataFromLinks(links map[string]interface{}, full bool) interface{} {
 		return linksAsSlice
 	}
 
-	keys := sortedMapKeys(links, "self")
+	keys := schema.SortedMapKeys(links, "self")
 	moduleNames := make([]map[string]interface{}, 0, len(keys))
 	for _, key := range keys {
 		moduleNames = append(moduleNames, map[string]interface{}{

@@ -1,4 +1,4 @@
-package cmd
+package api
 
 import (
 	"encoding/json"
@@ -7,7 +7,8 @@ import (
 	"strings"
 )
 
-func normalizeRecordID(value interface{}) (string, bool) {
+// NormalizeRecordID coerces record IDs from JSON values into stable string form.
+func NormalizeRecordID(value interface{}) (string, bool) {
 	if value == nil {
 		return "", false
 	}
@@ -42,4 +43,8 @@ func normalizeRecordID(value interface{}) (string, bool) {
 		}
 		return s, true
 	}
+}
+
+func normalizeWriteRecordID(value interface{}) (string, bool) {
+	return NormalizeRecordID(value)
 }

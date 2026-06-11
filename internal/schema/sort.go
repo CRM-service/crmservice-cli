@@ -1,4 +1,4 @@
-package cmd
+package schema
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 	"sort"
 )
 
-func sortedMapKeys(m map[string]interface{}, skip ...string) []string {
+func SortedMapKeys(m map[string]interface{}, skip ...string) []string {
 	skipSet := make(map[string]struct{}, len(skip))
 	for _, s := range skip {
 		skipSet[s] = struct{}{}
@@ -22,11 +22,11 @@ func sortedMapKeys(m map[string]interface{}, skip ...string) []string {
 	return keys
 }
 
-// sortedStringMap marshals object keys in sorted order for stable JSON output.
-type sortedStringMap map[string]interface{}
+// SortedStringMap marshals object keys in sorted order for stable JSON output.
+type SortedStringMap map[string]interface{}
 
-func (m sortedStringMap) MarshalJSON() ([]byte, error) {
-	keys := sortedMapKeys(map[string]interface{}(m))
+func (m SortedStringMap) MarshalJSON() ([]byte, error) {
+	keys := SortedMapKeys(map[string]interface{}(m))
 
 	var buf bytes.Buffer
 	buf.WriteByte('{')
@@ -50,7 +50,7 @@ func (m sortedStringMap) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func schemaResponseWithSortedAttributes(raw map[string]interface{}) map[string]interface{} {
+func ResponseWithSortedAttributes(raw map[string]interface{}) map[string]interface{} {
 	out := make(map[string]interface{}, len(raw))
 	for k, v := range raw {
 		out[k] = v
@@ -61,7 +61,7 @@ func schemaResponseWithSortedAttributes(raw map[string]interface{}) map[string]i
 		return out
 	}
 
-	sorted := make(sortedStringMap, len(attrs))
+	sorted := make(SortedStringMap, len(attrs))
 	for k, v := range attrs {
 		sorted[k] = v
 	}

@@ -127,8 +127,8 @@ Always confirm relation names and FK fields for the target installation:
 # All relations declared on a module (name, type, target module)
 crmservice fields invoices --full -o json | jq '.relations | to_entries[] | {name: .key, type: .value.type, module: .value.class}'
 
-# FK fields on a module (field name → related module in extras)
-crmservice fields contacts -o json | jq '.[] | select(.extras != null) | {name, module: .extras}'
+# FK fields on a module (field name → related module in relationModule)
+crmservice fields contacts -o json | jq '.[] | select(.relationModule != null) | {name, module: .relationModule}'
 
 # Relation metadata on a FK attribute
 crmservice fields contacts --full -o json | jq '.attributes.account_id | {relationType, relationName, relationModules}'

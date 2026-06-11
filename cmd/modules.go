@@ -35,16 +35,9 @@ func modulesCmd() *cobra.Command {
 				return err
 			}
 
-			client := api.NewClient(url, token)
-			client.Verbose = verbose
-			client.HTTPClient.Timeout = getTimeoutFromConfig()
+			client := newAPIClient(url, token, verbose)
 
-			type rawResponse struct {
-				Meta  interface{}            `json:"meta"`
-				Links map[string]interface{} `json:"links"`
-			}
-
-			var raw rawResponse
+			var raw api.DiscoveryResponse
 			if err := client.Do(cmd.Context(), http.MethodGet, "/", nil, &raw); err != nil {
 				return output.ErrorResponse(err)
 			}
@@ -64,9 +57,7 @@ func modulesCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
-	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
-	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
+	addCommonFlags(cmd, CommonFlagSet{Output: true, Verbose: true, Full: true})
 
 	return cmd
 }

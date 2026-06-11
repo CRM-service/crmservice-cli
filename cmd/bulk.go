@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,8 +18,6 @@ import (
 
 	"github.com/spf13/cobra"
 )
-
-type bulkRecord map[string]interface{}
 
 type bulkOptions struct {
 	ContinueOnError bool
@@ -82,9 +81,7 @@ func addBulkFlags(cmd *cobra.Command) {
 	cmd.Flags().Int("concurrency", 1, "Number of concurrent API requests")
 	cmd.Flags().Bool("skip-empty", false, "Skip empty records instead of failing")
 	cmd.Flags().Bool("summary", false, "Output only an operation summary")
-	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
-	cmd.Flags().Bool("full", false, "Include full response (not just attributes)")
-	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
+	addCommonFlags(cmd, CommonFlagSet{Output: true, Verbose: true, Full: true})
 }
 
 func runBulkCommand(cmd *cobra.Command, module, operation string) error {
@@ -111,9 +108,7 @@ func runBulkCommand(cmd *cobra.Command, module, operation string) error {
 		if err != nil {
 			return err
 		}
-		client = api.NewClient(url, token)
-		client.Verbose = opts.Verbose
-		client.HTTPClient.Timeout = getTimeoutFromConfig()
+		client = newAPIClient(url, token, opts.Verbose)
 	}
 
 	results, summary, err := processBulkRecords(cmd.Context(), client, module, operation, records, opts)
@@ -178,7 +173,7 @@ func getBulkOptions(cmd *cobra.Command) (bulkOptions, error) {
 	return bulkOptions{ContinueOnError: continueOnError, DryRun: dryRun, Concurrency: concurrency, SkipEmpty: skipEmpty, Summary: summary, OutputFormat: outputFormat, Full: full, Verbose: verbose}, nil
 }
 
-func readBulkRecords(reader io.Reader) ([]bulkRecord, error) {
+func readBulkRecords(reader io.Reader) ([]map[string]interface{}, error) {
 	if reader == nil {
 		reader = os.Stdin
 	}
@@ -205,12 +200,12 @@ func readBulkRecords(reader io.Reader) ([]bulkRecord, error) {
 		return records, nil
 	}
 	if record, err := parseBulkJSONObject(body); err == nil {
-		return []bulkRecord{record}, nil
+		return []map[string]interface{}{record}, nil
 	}
 	return parseBulkJSONL(body)
 }
 
-func parseBulkJSONArray(body []byte) ([]bulkRecord, error) {
+func parseBulkJSONArray(body []byte) ([]map[string]interface{}, error) {
 	var raw []map[string]interface{}
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.UseNumber()
@@ -220,14 +215,10 @@ func parseBulkJSONArray(body []byte) ([]bulkRecord, error) {
 	if err := ensureNoExtraJSON(decoder); err != nil {
 		return nil, err
 	}
-	records := make([]bulkRecord, 0, len(raw))
-	for _, item := range raw {
-		records = append(records, bulkRecord(item))
-	}
-	return records, nil
+	return append([]map[string]interface{}(nil), raw...), nil
 }
 
-func parseBulkJSONObject(body []byte) (bulkRecord, error) {
+func parseBulkJSONObject(body []byte) (map[string]interface{}, error) {
 	var raw map[string]interface{}
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.UseNumber()
@@ -237,7 +228,7 @@ func parseBulkJSONObject(body []byte) (bulkRecord, error) {
 	if err := ensureNoExtraJSON(decoder); err != nil {
 		return nil, err
 	}
-	return bulkRecord(raw), nil
+	return raw, nil
 }
 
 func ensureNoExtraJSON(decoder *json.Decoder) error {
@@ -250,10 +241,10 @@ func ensureNoExtraJSON(decoder *json.Decoder) error {
 	return fmt.Errorf("multiple JSON values")
 }
 
-func parseBulkJSONL(body []byte) ([]bulkRecord, error) {
+func parseBulkJSONL(body []byte) ([]map[string]interface{}, error) {
 	scanner := bufio.NewScanner(bytes.NewReader(body))
 	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
-	records := []bulkRecord{}
+	records := []map[string]interface{}{}
 	lineNo := 0
 	for scanner.Scan() {
 		lineNo++
@@ -267,7 +258,7 @@ func parseBulkJSONL(body []byte) ([]bulkRecord, error) {
 		if err := decoder.Decode(&record); err != nil {
 			return nil, fmt.Errorf("invalid JSONL on line %d: %w", lineNo, err)
 		}
-		records = append(records, bulkRecord(record))
+		records = append(records, record)
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, err
@@ -275,7 +266,7 @@ func parseBulkJSONL(body []byte) ([]bulkRecord, error) {
 	return records, nil
 }
 
-func processBulkRecords(ctx context.Context, client *api.Client, module, operation string, records []bulkRecord, opts bulkOptions) ([]bulkResult, bulkSummary, error) {
+func processBulkRecords(ctx context.Context, client *api.Client, module, operation string, records []map[string]interface{}, opts bulkOptions) ([]bulkResult, bulkSummary, error) {
 	summary := bulkSummary{Operation: operation, Module: module, Total: len(records), DryRun: opts.DryRun}
 	results := make([]bulkResult, len(records))
 
@@ -348,7 +339,7 @@ dispatch:
 	return compactBulkResults(results), summary, firstErr
 }
 
-func processBulkRecord(ctx context.Context, client *api.Client, module, operation string, index int, record bulkRecord, opts bulkOptions) (bulkResult, error) {
+func processBulkRecord(ctx context.Context, client *api.Client, module, operation string, index int, record map[string]interface{}, opts bulkOptions) (bulkResult, error) {
 	result := bulkResult{Index: index, Status: "pending"}
 	body, id, err := bulkRequestBody(module, operation, record)
 	result.ID = id
@@ -386,51 +377,12 @@ func processBulkRecord(ctx context.Context, client *api.Client, module, operatio
 	return result, nil
 }
 
-func bulkRequestBody(module, operation string, record bulkRecord) (map[string]interface{}, string, error) {
-	if data, ok := record["data"].(map[string]interface{}); ok {
-		id, hasID := normalizeRecordID(data["id"])
-		switch operation {
-		case "create":
-			delete(data, "id")
-		case "update":
-			if !hasID {
-				return nil, "", fmt.Errorf("bulk-update requires id in each record")
-			}
-			data["id"] = id
-		}
-		return map[string]interface{}{"data": data}, id, nil
-	}
-
-	attrs := make(map[string]interface{}, len(record))
-	var id string
-	for key, value := range record {
-		if key == "id" {
-			if normalized, ok := normalizeRecordID(value); ok {
-				id = normalized
-			}
-			continue
-		}
-		attrs[key] = value
-	}
-	if len(attrs) == 0 {
-		return nil, id, fmt.Errorf("empty record")
-	}
-	if operation == "update" && id == "" {
-		return nil, "", fmt.Errorf("bulk-update requires id in each record")
-	}
-
-	data := map[string]interface{}{
-		"type":       module,
-		"attributes": attrs,
-	}
-	if operation == "update" {
-		data["id"] = id
-	}
-	return map[string]interface{}{"data": data}, id, nil
+func bulkRequestBody(module, operation string, record map[string]interface{}) (map[string]interface{}, string, error) {
+	return api.BuildWriteBody(module, "", operation, record)
 }
 
 func isEmptyRecordError(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "empty record")
+	return errors.Is(err, api.ErrEmptyRecord)
 }
 
 func applyBulkResultToSummary(summary *bulkSummary, result bulkResult) {

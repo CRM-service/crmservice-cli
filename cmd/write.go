@@ -24,15 +24,7 @@ func singleRecordRequestBody(module, id, operation string, input *bodyInput) (ma
 		return nil, fmt.Errorf("no fields provided; use --field or pass JSON via stdin")
 	}
 
-	data := map[string]interface{}{
-		"type":       module,
-		"attributes": attrs,
-	}
-	if operation == "update" {
-		data["id"] = id
-	}
-
-	return map[string]interface{}{"data": data}, nil
+	return api.BuildSingleWriteBody(module, id, operation, attrs), nil
 }
 
 func outputDryRunRequest(operation, module, id string, body map[string]interface{}, outputFormat string) error {

@@ -69,7 +69,7 @@ func TestParseBulkJSONObjectRejectsJSONL(t *testing.T) {
 }
 
 func TestBulkRequestBodyCreateDropsID(t *testing.T) {
-	body, id, err := bulkRequestBody("accounts", "create", bulkRecord{"id": "297603", "name": "Acme"})
+	body, id, err := bulkRequestBody("accounts", "create", map[string]interface{}{"id": "297603", "name": "Acme"})
 	if err != nil {
 		t.Fatalf("bulkRequestBody() returned error: %v", err)
 	}
@@ -93,14 +93,14 @@ func TestBulkRequestBodyCreateDropsID(t *testing.T) {
 }
 
 func TestBulkRequestBodyUpdateRequiresID(t *testing.T) {
-	_, _, err := bulkRequestBody("accounts", "update", bulkRecord{"name": "Acme"})
+	_, _, err := bulkRequestBody("accounts", "update", map[string]interface{}{"name": "Acme"})
 	if err == nil {
 		t.Fatal("bulkRequestBody() error = nil, expected error")
 	}
 }
 
 func TestBulkRequestBodyUpdateJSONAPINumericID(t *testing.T) {
-	record := bulkRecord{
+	record := map[string]interface{}{
 		"data": map[string]interface{}{
 			"type": "accounts",
 			"id":   json.Number("297603"),
@@ -128,7 +128,7 @@ func TestBulkRequestBodyUpdateJSONAPINumericID(t *testing.T) {
 }
 
 func TestBulkRequestBodyUpdateFlatNumericID(t *testing.T) {
-	body, id, err := bulkRequestBody("accounts", "update", bulkRecord{"id": json.Number("42"), "name": "Acme"})
+	body, id, err := bulkRequestBody("accounts", "update", map[string]interface{}{"id": json.Number("42"), "name": "Acme"})
 	if err != nil {
 		t.Fatalf("bulkRequestBody() returned error: %v", err)
 	}
@@ -159,14 +159,14 @@ func TestProcessBulkUpdateJSONAPINumericIDPath(t *testing.T) {
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "token")
-	record := bulkRecord{
+	record := map[string]interface{}{
 		"data": map[string]interface{}{
 			"type":       "accounts",
 			"id":         json.Number("297603"),
 			"attributes": map[string]interface{}{"name": "Acme"},
 		},
 	}
-	results, summary, err := processBulkRecords(context.Background(), client, "accounts", "update", []bulkRecord{record}, bulkOptions{Concurrency: 1})
+	results, summary, err := processBulkRecords(context.Background(), client, "accounts", "update", []map[string]interface{}{record}, bulkOptions{Concurrency: 1})
 	if err != nil {
 		t.Fatalf("processBulkRecords() returned error: %v", err)
 	}
@@ -201,7 +201,7 @@ func TestProcessBulkCreate(t *testing.T) {
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "token")
-	results, summary, err := processBulkRecords(context.Background(), client, "accounts", "create", []bulkRecord{{"id": "old-id", "name": "Acme"}}, bulkOptions{Concurrency: 1})
+	results, summary, err := processBulkRecords(context.Background(), client, "accounts", "create", []map[string]interface{}{{"id": "old-id", "name": "Acme"}}, bulkOptions{Concurrency: 1})
 	if err != nil {
 		t.Fatalf("processBulkRecords() returned error: %v", err)
 	}
@@ -286,7 +286,7 @@ func TestProcessBulkRecordsUsesConcurrency(t *testing.T) {
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "token")
-	records := []bulkRecord{
+	records := []map[string]interface{}{
 		{"name": "One"},
 		{"name": "Two"},
 		{"name": "Three"},
@@ -318,7 +318,7 @@ func TestProcessBulkRecordsConcurrencyStopsOnError(t *testing.T) {
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "token")
-	records := []bulkRecord{
+	records := []map[string]interface{}{
 		{"name": "One"},
 		{"name": "Two"},
 		{"name": "Three"},

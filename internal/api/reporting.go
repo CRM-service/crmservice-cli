@@ -1,12 +1,10 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"math"
-	"net/http"
 	"os"
 	"strings"
 )
@@ -65,74 +63,13 @@ func reportingWhere(filter map[string]interface{}) interface{} {
 }
 
 func (c *Client) doReporting(ctx context.Context, body interface{}, result interface{}) error {
-	c.logReportingRequest(body)
-
-	jsonBody, err := json.Marshal(body)
-	if err != nil {
-		return err
-	}
-
-	reqURL := c.BaseURL + "/reporting"
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(jsonBody))
-	if err != nil {
-		return err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	if c.AuthToken != "" {
-		req.Header.Set("Authorization", "Bearer "+c.AuthToken)
-	}
-
-	resp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	respBody, err := readResponseBody(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	c.logResponse(resp.StatusCode, respBody)
-
-	if resp.StatusCode >= 400 {
-		return &Error{
-			Status:  resp.StatusCode,
-			Body:    respBody,
-			Message: string(respBody),
-		}
-	}
-
-	if result != nil {
-		if err := json.Unmarshal(respBody, result); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (c *Client) logReportingRequest(body interface{}) {
-	if c.Verbose >= 1 {
-		fmt.Fprintf(os.Stderr, "[REQUEST] POST %s/reporting\n", c.BaseURL)
-	}
 	if c.Verbose >= 2 {
-		headers := map[string]string{
-			"Content-Type": "application/json",
-			"Accept":       "application/json",
-		}
-		if c.AuthToken != "" {
-			headers["Authorization"] = "Bearer " + c.AuthToken
-		}
-		fmt.Fprintf(os.Stderr, "[REQUEST HEADERS] %v\n", redactHeaders(headers))
-
 		payload, err := json.Marshal(body)
 		if err == nil {
 			fmt.Fprintf(os.Stderr, "[REQUEST BODY]\n%s\n", string(payload))
 		}
 	}
+	return c.PostJSON(ctx, "/reporting", body, result)
 }
 
 func parseReportingCount(resp *ReportingResponse) (int, error) {

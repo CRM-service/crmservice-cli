@@ -73,7 +73,7 @@ First discover owner/creator/assignee fields exposed as attributes:
 
 ```bash
 crmservice fields accounts -o json \
-  | jq -r '.[] | select(.name|test("owner|created|creator|modified|assigned"; "i")) | [.name,.label,.type,.extras] | @tsv'
+  | jq -r '.[] | select(.name|test("owner|created|creator|modified|assigned"; "i")) | [.name,.label,.type,.relationModule] | @tsv'
 ```
 
 Then list only fields that actually exist in the schema output:
@@ -94,7 +94,7 @@ CRM modules link through named relations. The relation name in `--include` is of
 ```bash
 # Discover relations and FK fields
 crmservice fields invoices --full -o json | jq '.relations | keys'
-crmservice fields contacts -o json | jq '.[] | select(.extras != null) | {name, module: .extras}'
+crmservice fields contacts -o json | jq '.[] | select(.relationModule != null) | {name, module: .relationModule}'
 
 # hasOne: filter parent by FK field
 crmservice search contacts '{"$eq":["account_id","ACCOUNT_ID"]}' -o json

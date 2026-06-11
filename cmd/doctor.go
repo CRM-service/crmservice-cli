@@ -2,8 +2,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/csv"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -13,8 +11,12 @@ import (
 	"crmservice/internal/output"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
+
+var doctorColumns = []string{
+	"version", "config_path", "config_present", "api_url", "api_url_configured",
+	"api_reachable", "token_present", "authenticated", "cache_dir", "cache_writable", "ok",
+}
 
 var (
 	doctorCheckAPIReachable = checkAPIReachable
@@ -48,7 +50,7 @@ func doctorCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
+	addCommonFlags(cmd, CommonFlagSet{Output: true})
 
 	return cmd
 }
@@ -171,53 +173,8 @@ func checkCacheWritable(cacheDir string) bool {
 }
 
 func outputDoctor(format string, data map[string]interface{}) error {
-	switch format {
-	case "json":
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		return encoder.Encode(data)
-	case "jsonl":
-		return json.NewEncoder(os.Stdout).Encode(data)
-	case "yaml":
-		encoder := yaml.NewEncoder(os.Stdout)
-		encoder.SetIndent(2)
-		return encoder.Encode(data)
-	case "csv":
-		columns := []string{
-			"version", "config_path", "config_present", "api_url", "api_url_configured",
-			"api_reachable", "token_present", "authenticated", "cache_dir", "cache_writable", "ok",
-		}
-		writer := csv.NewWriter(os.Stdout)
-		if err := writer.Write(columns); err != nil {
-			return err
-		}
-		row := make([]string, len(columns))
-		for i, column := range columns {
-			if value, ok := data[column]; ok && value != nil {
-				row[i] = fmt.Sprintf("%v", value)
-			}
-		}
-		if err := writer.Write(row); err != nil {
-			return err
-		}
-		writer.Flush()
-		return writer.Error()
-	case "table":
-		keys := []string{
-			"version", "config_path", "config_present", "api_url", "api_url_configured",
-			"api_reachable", "token_present", "authenticated", "cache_dir", "cache_writable", "ok",
-		}
-		for _, key := range keys {
-			fmt.Printf("%-20s | %v\n", key, data[key])
-		}
-		if issues, ok := data["issues"].([]string); ok && len(issues) > 0 {
-			fmt.Printf("%-20s | %v\n", "issues", issues)
-		}
-		if user, ok := data["user"].(map[string]interface{}); ok {
-			fmt.Printf("%-20s | %v\n", "user", user)
-		}
-		return nil
-	default:
-		return output.ValidateOutputFormat(format)
-	}
+	return output.WriteStructured(format, data, output.StructuredOptions{
+		Columns:      doctorColumns,
+		ExtraColumns: []string{"issues", "user"},
+	})
 }

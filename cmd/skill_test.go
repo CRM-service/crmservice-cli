@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"crmservice/internal/osutil"
 	"crmservice/skills"
 )
 
@@ -15,9 +16,9 @@ func setTestUserHome(t *testing.T) string {
 	t.Helper()
 
 	home := t.TempDir()
-	oldUserHomeDir := userHomeDir
-	userHomeDir = func() (string, error) { return home, nil }
-	t.Cleanup(func() { userHomeDir = oldUserHomeDir })
+	oldUserHomeDir := osutil.UserHomeDir
+	osutil.UserHomeDir = func() (string, error) { return home, nil }
+	t.Cleanup(func() { osutil.UserHomeDir = oldUserHomeDir })
 	return home
 }
 

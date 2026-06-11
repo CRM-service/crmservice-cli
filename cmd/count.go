@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"crmservice/internal/api"
+	"crmservice/internal/filter"
 	"crmservice/internal/output"
 
 	"github.com/spf13/cobra"
@@ -22,8 +23,7 @@ func countCmd() *cobra.Command {
 
 	cmd.Flags().String("filter", "", "Filter in JSON format")
 	cmd.Flags().String("include", "", "Comma-separated relation names required by the filter")
-	cmd.Flags().StringP("output", "o", "table", "Output format: table, json, yaml, jsonl, or csv")
-	cmd.Flags().Int("verbose", 0, "Verbose output level (0=quiet, 1=REQUEST/RESPONSE summary, 2=detailed)")
+	addCommonFlags(cmd, CommonFlagSet{Output: true, Verbose: true})
 
 	return cmd
 }
@@ -78,13 +78,13 @@ func runCountCommand(cmd *cobra.Command, args []string) error {
 
 	var filterObj map[string]interface{}
 	if filterJSON != "" {
-		if err := json.Unmarshal([]byte(filterJSON), &filterObj); err != nil {
-			return fmt.Errorf("invalid filter format. Use JSON syntax: filter={$and:[{$eq:[\"field\",\"value\"]}]}. Error: %v", err)
+		var err error
+		filterObj, err = filter.ParseToMap(filterJSON)
+		if err != nil {
+			return output.ErrorResponse(err)
 		}
 	}
-	apiClient := api.NewClient(url, token)
-	apiClient.Verbose = verbose
-	apiClient.HTTPClient.Timeout = getTimeoutFromConfig()
+	apiClient := newAPIClient(url, token, verbose)
 
 	count, err := apiClient.Count(cmd.Context(), module, &api.CountOptions{
 		Filter:  filterObj,
