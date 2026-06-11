@@ -74,13 +74,9 @@ func validateModuleFilter(module, filterJSON, url, token string, verbose int) er
 }
 
 func validateFilterJSONAgainstModule(module, input, url, token string, verbose int) error {
-	if err := filter.ValidateFilterJSON(input); err != nil {
-		return err
-	}
-
-	parsed, err := filter.ParseFilterJSON(input)
+	parsed, err := filter.ParsedFilterJSON(input)
 	if err != nil {
-		return fmt.Errorf("invalid filter JSON: %w", err)
+		return err
 	}
 
 	fields := filter.CollectFilterFields(parsed)

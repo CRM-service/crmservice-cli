@@ -81,7 +81,7 @@ func runCountCommand(cmd *cobra.Command, args []string) error {
 		var err error
 		filterObj, err = filter.ParseToMap(filterJSON)
 		if err != nil {
-			return err
+			return output.ErrorResponse(err)
 		}
 	}
 	apiClient := newAPIClient(url, token, verbose)

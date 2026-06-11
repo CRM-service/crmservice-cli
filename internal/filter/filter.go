@@ -84,40 +84,60 @@ Date/time values:
 
 `
 
-func ValidateFilterJSON(input string) error {
+const filterFormatHint = "invalid filter format. Use JSON syntax: filter={$and:[{$eq:[\"field\",\"value\"]}]}."
+
+func filterFormatDecodeError(err error) error {
+	return fmt.Errorf("%s Error: %v", filterFormatHint, err)
+}
+
+func filterFormatDetailError(detail string) error {
+	return fmt.Errorf("%s Error: %s", filterFormatHint, detail)
+}
+
+func decodeFilterJSON(input string) (interface{}, error) {
 	var filter interface{}
 	decoder := json.NewDecoder(strings.NewReader(input))
 	decoder.UseNumber()
 	if err := decoder.Decode(&filter); err != nil {
-		return fmt.Errorf("invalid filter JSON: %w", err)
+		return nil, filterFormatDecodeError(err)
 	}
 	var extra interface{}
 	if err := decoder.Decode(&extra); err == nil {
-		return fmt.Errorf("invalid filter JSON: multiple JSON values")
+		return nil, filterFormatDetailError("multiple JSON values")
 	} else if err != io.EOF {
-		return fmt.Errorf("invalid filter JSON: %w", err)
+		return nil, filterFormatDecodeError(err)
 	}
-	return validateFilterExpression(filter, "$")
+	return filter, nil
 }
 
-func ParseFilterJSON(input string) (interface{}, error) {
-	var filter interface{}
-	decoder := json.NewDecoder(strings.NewReader(input))
-	decoder.UseNumber()
-	if err := decoder.Decode(&filter); err != nil {
+func ValidateFilterJSON(input string) error {
+	_, err := ParsedFilterJSON(input)
+	return err
+}
+
+func ParsedFilterJSON(input string) (interface{}, error) {
+	filter, err := decodeFilterJSON(input)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateFilterExpression(filter, "$"); err != nil {
 		return nil, err
 	}
 	return filter, nil
 }
 
+func ParseFilterJSON(input string) (interface{}, error) {
+	return decodeFilterJSON(input)
+}
+
 func ParseToMap(filterJSON string) (map[string]interface{}, error) {
 	parsed, err := ParseFilterJSON(filterJSON)
 	if err != nil {
-		return nil, fmt.Errorf("invalid filter format. Use JSON syntax: filter={$and:[{$eq:[\"field\",\"value\"]}]}. Error: %v", err)
+		return nil, err
 	}
 	filterObj, ok := parsed.(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("invalid filter format. Use JSON syntax: filter={$and:[{$eq:[\"field\",\"value\"]}]}. Error: filter must be a JSON object")
+		return nil, filterFormatDetailError("filter must be a JSON object")
 	}
 	return filterObj, nil
 }

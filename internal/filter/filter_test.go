@@ -1,6 +1,7 @@
 package filter
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -70,5 +71,25 @@ func TestParseToMap(t *testing.T) {
 	}
 	if _, ok := filterObj["$eq"]; !ok {
 		t.Fatal("expected $eq key in filter object")
+	}
+}
+
+func TestValidateFilterJSONIncludesFormatHint(t *testing.T) {
+	err := ValidateFilterJSON("not-json")
+	if err == nil {
+		t.Fatal("ValidateFilterJSON() error = nil, expected syntax error")
+	}
+	if !strings.Contains(err.Error(), filterFormatHint) {
+		t.Fatalf("ValidateFilterJSON() error = %q, expected format hint", err.Error())
+	}
+}
+
+func TestParseToMapIncludesFormatHint(t *testing.T) {
+	_, err := ParseToMap("not-json")
+	if err == nil {
+		t.Fatal("ParseToMap() error = nil, expected syntax error")
+	}
+	if !strings.Contains(err.Error(), filterFormatHint) {
+		t.Fatalf("ParseToMap() error = %q, expected format hint", err.Error())
 	}
 }
