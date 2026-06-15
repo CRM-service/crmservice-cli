@@ -46,3 +46,15 @@ crmservice delete accounts 123 -o json
 ```
 
 `-o json` returns `{"deleted":true,"module":"accounts","id":"123"}`.
+
+## Upload file to entity
+
+Upload a local file and link it to an entity via `POST <module>/<id>/files`. Optional file metadata uses `--field` (validated against the `files` module schema).
+
+```bash
+crmservice upload accounts 123 ./contract.pdf
+crmservice upload entities 456 ./notes.txt --field "file_usage_type=Entity Attachment"
+crmservice upload accounts 123 ./doc.pdf --field "file_access_type=Internal" --dry-run -o json
+```
+
+`--dry-run` prints the target path, file name, size, and attributes without sending the upload.

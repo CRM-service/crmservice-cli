@@ -67,6 +67,7 @@ Recommended env defaults: `CRMSERVICE_API_URL=customer.crmservice.fi`, `CRMSERVI
 | `search` | Search with a JSON filter (alias for `list --filter`) |
 | `skill` | Install, inspect, and print the bundled skill |
 | `update` | Update an existing record |
+| `upload` | Upload a file and link it to an entity |
 | `whoami` | Show the authenticated CRM user |
 
 ## Reference guide
