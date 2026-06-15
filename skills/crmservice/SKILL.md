@@ -1,6 +1,6 @@
 ---
 name: crmservice
-description: "REQUIRED for interacting with the CRM-service REST API via the crmservice CLI tool. Use when working with CRM data operations including creating, reading, updating, and deleting records across CRM modules. Triggers: CRM record management, data queries, API interactions, module exploration, record field operations, and CRM data synchronization."
+description: "REQUIRED for interacting with the CRM-service REST API via the crmservice CLI tool. Use when working with CRM data operations including creating, reading, updating, deleting, and uploading file attachments to records across CRM modules. Triggers: CRM record management, data queries, API interactions, module exploration, record field operations, file uploads, and CRM data synchronization."
 ---
 
 # crmservice CLI
@@ -27,9 +27,13 @@ crmservice search <module> '<filter-json>' --all --max-results 500 -o jsonl
 # 4. Preview writes before sending
 crmservice create <module> --field "name=..." --dry-run -o json
 printf '{"name":"..."}\n' | crmservice bulk-create <module> --dry-run -o jsonl
+crmservice upload <module> <id> ./file.pdf --field "file_usage_type=Entity Attachment" --dry-run -o json
 
 # 5. Execute batch writes (always --summary -o json; check failed in output)
 printf '{"id":"123","field":"value"}\n' | crmservice bulk-update <module> --summary -o json
+
+# 6. Upload file attachments (25 MB max; scalar --field metadata only)
+crmservice upload <module> <id> ./attachment.pdf --field "file_usage_type=Entity Attachment" -o json
 ```
 
 **Module relations:** CRM modules link through named relations; the relation name in `--include` is often not the module name (e.g. `rows` → `invoice_rows`). Prefer FK fields (`account_id`) or child-module queries in filters. See [references/relations.md](references/relations.md) for relation types, naming quirks, and a lookup table.
@@ -43,6 +47,7 @@ printf '{"id":"123","field":"value"}\n' | crmservice bulk-update <module> --summ
 - `filter validate` → optional standalone check; stdout only; exit 0 = valid, non-zero = invalid
 - `--all --max-results N` → truncation status on **stderr**; exit code stays 0
 - `bulk-*` production writes → `--summary -o json`; with `--continue-on-error`, check `failed > 0`
+- `upload` → scalar `--field` metadata validated against `files` schema; 25 MB max; 60s timeout; `POST users/<id>/files` returns 501
 - `skill install --check` → stdout only; exit 0 = up to date; non-zero = missing or stale
 
 API host: `customer.crmservice.fi` (see [references/configuration.md](references/configuration.md) for all config keys, environment variables, and global flags).
@@ -67,6 +72,7 @@ Recommended env defaults: `CRMSERVICE_API_URL=customer.crmservice.fi`, `CRMSERVI
 | `search` | Search with a JSON filter (alias for `list --filter`) |
 | `skill` | Install, inspect, and print the bundled skill |
 | `update` | Update an existing record |
+| `upload` | Upload a file and link it to an entity |
 | `whoami` | Show the authenticated CRM user |
 
 ## Reference guide
@@ -79,7 +85,7 @@ Read the matching file when you need detail beyond the quick start:
 | Build or debug a filter | [references/filters.md](references/filters.md) |
 | Understand module relations (hasOne/hasMany, rows, many-to-many) | [references/relations.md](references/relations.md) |
 | Read, count, or inspect schema | [references/reads.md](references/reads.md) |
-| Create, update, or delete one record | [references/writes.md](references/writes.md) |
+| Create, update, delete, or upload files to a record | [references/writes.md](references/writes.md) |
 | Batch create/update or migrate data | [references/bulk.md](references/bulk.md) |
 | Copy-paste workflows (recent records, jq, safe flow) | [references/patterns.md](references/patterns.md) |
 | Setup, auth, doctor, env defaults, skill install | [references/configuration.md](references/configuration.md) |

@@ -46,3 +46,22 @@ crmservice delete accounts 123 -o json
 ```
 
 `-o json` returns `{"deleted":true,"module":"accounts","id":"123"}`.
+
+## Upload file to entity
+
+Upload a local file and link it to an entity via `POST <module>/<id>/files`. Optional file metadata uses `--field` (validated against the `files` module schema). Metadata values must be scalar strings, numbers, or booleans.
+
+```bash
+crmservice upload accounts 123 ./contract.pdf
+crmservice upload entities 456 ./notes.txt --field "file_usage_type=Entity Attachment"
+crmservice upload accounts 123 ./doc.pdf --field "file_access_type=Internal" --dry-run -o json
+```
+
+Limits and API behavior:
+
+- Maximum file size: **25 MB** (enforced client-side and by the API)
+- The API validates file extension and MIME type; unsupported formats are rejected
+- `POST users/<id>/files` is not implemented (returns 501)
+- Upload requests use a **60s** HTTP timeout (other commands use the configured API timeout)
+
+`--dry-run` prints the target path, file name, size, and attributes without sending the upload.

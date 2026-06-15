@@ -158,6 +158,7 @@ func init() {
 	rootCmd.AddCommand(createCmd())
 	rootCmd.AddCommand(updateCmd())
 	rootCmd.AddCommand(deleteCmd())
+	rootCmd.AddCommand(uploadCmd())
 	rootCmd.AddCommand(fieldsCmd())
 	rootCmd.AddCommand(filterCmd())
 	rootCmd.AddCommand(searchCmd())

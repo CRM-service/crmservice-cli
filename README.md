@@ -6,7 +6,7 @@ Built for humans and automation: structured **stdout** for data, **stderr** for 
 
 ## Features
 
-- **JSON:API client** — list, get, create, update, delete with pagination, sparse fieldsets, sorting, includes, and filters
+- **JSON:API client** — list, get, create, update, delete, and file upload with pagination, sparse fieldsets, sorting, includes, and filters
 - **Reporting `count`** — fast record totals without fetching full datasets
 - **Bulk operations** — `bulk-create` and `bulk-update` from JSONL or JSON arrays with concurrency and dry-run
 - **Filter language** — JSON operators (`$eq`, `$and`, `$cts`, …) with local syntax and schema validation
@@ -196,11 +196,16 @@ echo '{"name":"Acme","account_type":"Customer"}' | crmservice create accounts
 
 crmservice update accounts <id> --field name="New Name"
 crmservice delete accounts <id>
+
+crmservice upload accounts <id> ./contract.pdf
+crmservice upload entities <id> ./notes.txt --field "file_usage_type=Entity Attachment" --dry-run -o json
 ```
 
 `create` and `update` accept flat JSON on stdin or full JSON:API request bodies. Use `--dry-run` to preview the request without sending it.
 
-Empty attribute payloads are rejected before the API call.
+`upload` sends a local file via multipart form data and links it to an entity (`POST <module>/<id>/files`). Optional metadata uses `--field` with scalar values only (validated against the `files` module schema). Maximum file size is 25 MB; upload requests use a 60s timeout.
+
+Empty attribute payloads are rejected before the API call (create/update).
 
 ### Bulk operations
 
