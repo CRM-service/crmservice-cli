@@ -1,16 +1,19 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
+	"time"
 
 	"crmservice/internal/api"
 	"crmservice/internal/output"
 
 	"github.com/spf13/cobra"
 )
+
+const uploadRequestTimeout = 60 * time.Second
 
 func uploadCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -19,7 +22,8 @@ func uploadCmd() *cobra.Command {
 		Long: `Upload a file to the CRM files API and link it to an entity record.
 
 Uses multipart/form-data with a "file" field and optional file metadata via --field.
-Metadata fields are validated against the files module schema.
+Metadata fields must be scalar values (string, number, or boolean) and are validated
+against the files module schema. Maximum file size is 25 MB.
 
 Examples:
   crmservice upload accounts 123 ./contract.pdf
@@ -61,6 +65,9 @@ func runUploadCommand(cmd *cobra.Command, module, id, filePath string) error {
 	if info.IsDir() {
 		return fmt.Errorf("file %s is a directory", filePath)
 	}
+	if info.Size() > api.MaxUploadFileSize {
+		return fmt.Errorf("file %s exceeds maximum upload size of 25 MB (got %d bytes)", filePath, info.Size())
+	}
 
 	apiPath := fmt.Sprintf("/%s/%s/files", module, id)
 
@@ -91,7 +98,7 @@ func runUploadCommand(cmd *cobra.Command, module, id, filePath string) error {
 		return err
 	}
 
-	apiClient := newAPIClient(url, token, common.Verbose)
+	apiClient := newAPIClientWithTimeout(url, token, common.Verbose, uploadRequestTimeout)
 	resp, err := apiClient.UploadFile(cmd.Context(), apiPath, api.FileUploadRequest{
 		FilePath:   cleanPath,
 		Attributes: attributes,
@@ -111,19 +118,35 @@ func getUploadAttributes(cmd *cobra.Command) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(fields) == 0 {
-		return nil, nil
-	}
 
-	attributes := make(map[string]interface{}, len(fields))
-	for _, f := range fields {
-		parts := strings.SplitN(f, "=", 2)
-		if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" {
-			return nil, fmt.Errorf("invalid --field %q: expected name=value", f)
+	attributes, err := parseFieldFlags(fields)
+	if err != nil {
+		return nil, err
+	}
+	for name, value := range attributes {
+		if !isScalarUploadValue(value) {
+			return nil, fmt.Errorf("invalid --field %q: upload metadata must be a scalar value (string, number, or boolean)", name+"="+formatScalarHint(value))
 		}
-		attributes[strings.TrimSpace(parts[0])] = parseFieldValue(parts[1])
 	}
 	return attributes, nil
+}
+
+func isScalarUploadValue(value interface{}) bool {
+	switch value.(type) {
+	case string, bool, json.Number, float64, float32, int, int64, int32, uint, uint64, uint32:
+		return true
+	default:
+		return false
+	}
+}
+
+func formatScalarHint(value interface{}) string {
+	switch typed := value.(type) {
+	case string:
+		return typed
+	default:
+		return fmt.Sprintf("%v", typed)
+	}
 }
 
 func outputUploadDryRun(module, id, apiPath, filePath string, fileSize int64, attributes map[string]interface{}, outputFormat string) error {

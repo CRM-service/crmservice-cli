@@ -32,7 +32,19 @@ func getBodyInput(cmd *cobra.Command, id, operation string) (*bodyInput, error) 
 		return stdinBody, nil
 	}
 
-	data := make(map[string]interface{})
+	data, err := parseFieldFlags(fields)
+	if err != nil {
+		return nil, err
+	}
+	return &bodyInput{body: data}, nil
+}
+
+func parseFieldFlags(fields []string) (map[string]interface{}, error) {
+	if len(fields) == 0 {
+		return nil, nil
+	}
+
+	data := make(map[string]interface{}, len(fields))
 	for _, f := range fields {
 		parts := strings.SplitN(f, "=", 2)
 		if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" {
@@ -40,7 +52,7 @@ func getBodyInput(cmd *cobra.Command, id, operation string) (*bodyInput, error) 
 		}
 		data[strings.TrimSpace(parts[0])] = parseFieldValue(parts[1])
 	}
-	return &bodyInput{body: data}, nil
+	return data, nil
 }
 
 func parseFieldValue(value string) interface{} {

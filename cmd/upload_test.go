@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"crmservice/internal/api"
 	"crmservice/internal/config"
 )
 
@@ -197,6 +198,60 @@ func TestUploadCmdRejectsUnknownFieldAgainstSchema(t *testing.T) {
 	}
 	if uploadRequests != 0 {
 		t.Fatalf("upload requests = %d, want 0", uploadRequests)
+	}
+}
+
+func TestUploadCmdRejectsOversizedFile(t *testing.T) {
+	tempFile := filepath.Join(t.TempDir(), "oversized.bin")
+	if err := os.WriteFile(tempFile, make([]byte, api.MaxUploadFileSize+1), 0o600); err != nil {
+		t.Fatalf("WriteFile() error: %v", err)
+	}
+
+	oldCfg := cfg
+	cfg = &config.Config{
+		API:  config.APIConfig{URL: "https://example.com/api/v1", Timeout: 5},
+		Auth: config.AuthConfig{Token: "token"},
+	}
+	t.Cleanup(func() { cfg = oldCfg })
+
+	cmd := uploadCmd()
+	cmd.SilenceErrors = true
+	cmd.SilenceUsage = true
+	cmd.SetArgs([]string{"accounts", "123", tempFile, "-o", "json"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("Execute() error = nil, expected oversized file error")
+	}
+	if !strings.Contains(err.Error(), "25 MB") {
+		t.Fatalf("Execute() error = %v, want 25 MB limit message", err)
+	}
+}
+
+func TestUploadCmdRejectsNonScalarField(t *testing.T) {
+	tempFile := filepath.Join(t.TempDir(), "reject.txt")
+	if err := os.WriteFile(tempFile, []byte("reject"), 0o600); err != nil {
+		t.Fatalf("WriteFile() error: %v", err)
+	}
+
+	oldCfg := cfg
+	cfg = &config.Config{
+		API:  config.APIConfig{URL: "https://example.com/api/v1", Timeout: 5},
+		Auth: config.AuthConfig{Token: "token"},
+	}
+	t.Cleanup(func() { cfg = oldCfg })
+
+	cmd := uploadCmd()
+	cmd.SilenceErrors = true
+	cmd.SilenceUsage = true
+	cmd.SetArgs([]string{"accounts", "123", tempFile, "--field", `tags=["a","b"]`, "-o", "json"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("Execute() error = nil, expected non-scalar field error")
+	}
+	if !strings.Contains(err.Error(), "scalar value") {
+		t.Fatalf("Execute() error = %v, want scalar value message", err)
 	}
 }
 

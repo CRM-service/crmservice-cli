@@ -124,6 +124,21 @@ func TestClient_UploadFile(t *testing.T) {
 	}
 }
 
+func TestBuildMultipartUploadBodyRejectsOversizedFile(t *testing.T) {
+	tempFile := filepath.Join(t.TempDir(), "oversized.bin")
+	if err := os.WriteFile(tempFile, make([]byte, MaxUploadFileSize+1), 0o600); err != nil {
+		t.Fatalf("WriteFile() error: %v", err)
+	}
+
+	_, _, err := buildMultipartUploadBody(FileUploadRequest{FilePath: tempFile})
+	if err == nil {
+		t.Fatal("buildMultipartUploadBody() error = nil, expected oversized file error")
+	}
+	if !strings.Contains(err.Error(), "25 MB") {
+		t.Fatalf("error = %v, want 25 MB limit message", err)
+	}
+}
+
 func TestBuildMultipartUploadBodyRejectsDirectory(t *testing.T) {
 	dir := t.TempDir()
 	_, _, err := buildMultipartUploadBody(FileUploadRequest{FilePath: dir})

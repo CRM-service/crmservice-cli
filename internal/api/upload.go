@@ -13,6 +13,9 @@ import (
 	"strings"
 )
 
+// MaxUploadFileSize matches the CRM REST API attachment limit (25 MiB).
+const MaxUploadFileSize = 25 * 1024 * 1024
+
 // FileUploadRequest describes a multipart file upload to the CRM API.
 type FileUploadRequest struct {
 	FilePath   string
@@ -90,6 +93,9 @@ func buildMultipartUploadBody(req FileUploadRequest) (io.Reader, string, error) 
 	}
 	if info.IsDir() {
 		return nil, "", fmt.Errorf("%s is a directory", req.FilePath)
+	}
+	if info.Size() > MaxUploadFileSize {
+		return nil, "", fmt.Errorf("%s exceeds maximum upload size of 25 MB (got %d bytes)", req.FilePath, info.Size())
 	}
 
 	body := &bytes.Buffer{}
